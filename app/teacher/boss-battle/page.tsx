@@ -1,0 +1,864 @@
+"use client";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { listRaidGuests, raidGuestToStudent } from "@/lib/raid-guests";
+import type { Quiz, QuizQuestion, Student } from "@/lib/types";
+import { BossWaitingParticipant } from "@/components/boss-battle/BossWaitingParticipant";
+import { BossWaitingRoomBgm } from "@/components/boss-battle/BossWaitingRoomBgm";
+import { BossBattleArena } from "@/components/boss-battle/BossBattleArena";
+import { ArrowLeft, Play, RefreshCw, StopCircle, Users, QrCode, X } from "lucide-react";
+import { getBossById } from "@/lib/boss-catalog";
+import { REWARD_FOLDER_ITEMS } from "@/lib/reward-folder-items";
+import {
+  HAETAE_PREPARED_QUIZ_GROUPS,
+  HAETAE_PREPARED_QUESTIONS,
+  HAETAE_PREPARED_QUESTION_COUNT,
+} from "@/lib/boss-prepared-quizzes";
+import {
+  ANSWER_REVEAL_SECONDS,
+  DEFENSE_REVEAL_SECONDS,
+  MAX_BOSS_PLAYERS,
+  RPS_REVEAL_SECONDS,
+  RPS_TIME_SECONDS,
+  buildRoundPlan,
+  calculateBossMaxHp,
+  chooseBossAttack,
+  bossAttackDamage,
+  currentBossQuestion,
+  endBossBattleSession,
+  getBossAnswers,
+  getBossBattleSession,
+  getBossParticipants,
+  grantBossBattleReward,
+  isBossAnswerCorrect,
+  isNewerBossSession,
+  randomRps,
+  resetBossParticipantStates,
+  rpsMultiplier,
+  saveBossBattleSession,
+  updateBossParticipantState,
+  clearBossParticipants,
+  type BossBattleParticipant,
+  type BossBattleSession,
+} from "@/lib/boss-battle";
+
+export default function TeacherBossBattlePage() {
+  const sp = useSearchParams(),
+    router = useRouter(),
+    code = (sp.get("code") || "").toUpperCase(),
+    selectedBoss = getBossById(sp.get("bossId"));
+  const [quizzes, setQuizzes] = useState<Quiz[]>([]),
+    [students, setStudents] = useState<Student[]>([]),
+    [participants, setParticipants] = useState<BossBattleParticipant[]>([]),
+    [session, setSession] = useState<BossBattleSession | null>(null);
+  const [count, setCount] = useState(10),
+    [seconds, setSeconds] = useState(20),
+    [selected, setSelected] = useState<Record<string, boolean>>({}),
+    [preparedSelected, setPreparedSelected] = useState<Record<string, boolean>>({}),
+    [busy, setBusy] = useState(false),
+    [qrOpen, setQrOpen] = useState(false),
+    [victoryRewardItemId, setVictoryRewardItemId] = useState(
+      "g5-s1-social-u3-pet-law-judge-haetae",
+    ),
+    [escapeRewardItemId, setEscapeRewardItemId] = useState(
+      "g5-s1-social-u3-face-haetae-tear",
+    );
+  const resolving = useRef(false),
+    phaseTimerBusy = useRef(false);
+  const scaledBossDamage = (attack: any, current: BossBattleSession) => {
+    const defenseCount = Math.max(
+      1,
+      current.roundPlan.filter((x) => x.kind === "defense").length,
+    );
+    const base = Math.min(45, Math.max(14, Math.ceil(130 / defenseCount)));
+    const multiplier =
+      attack === "lightning" ? 1.45 : attack === "clawCombo" ? 1.2 : 1;
+    return Math.min(60, Math.max(10, Math.round(base * multiplier)));
+  };
+  useEffect(() => {
+    if (!code) return;
+    Promise.all([listRaidGuests(code), getBossBattleSession(code)]).then(([guests, ss]) => {
+      setStudents(guests.map(raidGuestToStudent));
+      setSession(ss);
+      if (ss) {
+        setCount(ss.questionCount);
+        setSeconds(ss.timeLimitSeconds);
+        setVictoryRewardItemId(
+          ss.victoryRewardItemId || "g5-s1-social-u3-pet-law-judge-haetae",
+        );
+        setEscapeRewardItemId(
+          ss.escapeRewardItemId || "g5-s1-social-u3-face-haetae-tear",
+        );
+      }
+    });
+  }, [code]);
+  useEffect(() => {
+    if (!session?.id) return;
+    const run = async () => {
+      const [ss, ps, guests] = await Promise.all([
+        getBossBattleSession(code),
+        getBossParticipants(code, session.id, true),
+        listRaidGuests(code),
+      ]);
+      if (ss) setSession((prev) => (isNewerBossSession(prev, ss) ? ss : prev));
+      setParticipants(ps);
+      setStudents(guests.map(raidGuestToStudent));
+    };
+    run();
+    const t = setInterval(run, 700);
+    return () => clearInterval(t);
+  }, [code, session?.id]);
+
+  const allQuestions = useMemo(
+      () =>
+        quizzes.flatMap((q) =>
+          (q.questions || []).map(
+            (x) =>
+              ({
+                ...x,
+                quizId: x.quizId || q.id,
+                sourceQuizTitle: q.title,
+              }) as any,
+          ),
+        ),
+      [quizzes],
+    ),
+    chosen = allQuestions.filter((q) => selected[q.id]),
+    preparedChosen = HAETAE_PREPARED_QUESTIONS.filter((q) => preparedSelected[q.id]),
+    rewardItems = REWARD_FOLDER_ITEMS.filter(
+      (x) =>
+        x.grade === "5" &&
+        x.semester === "1" &&
+        x.subject === "social" &&
+        x.unit === "5-1-social-3",
+    );
+  async function createRoom() {
+    setBusy(true);
+    try {
+      const pool: QuizQuestion[] = preparedChosen.length ? preparedChosen : HAETAE_PREPARED_QUESTIONS;
+      const qs = [...pool]
+        .sort(() => Math.random() - 0.5)
+        .slice(0, Math.min(count, pool.length));
+      const plan = buildRoundPlan(qs),
+        attackCount = plan.filter((x) => x.kind === "attack").length,
+        hp = calculateBossMaxHp(
+          Math.max(1, participants.length || students.length),
+          attackCount,
+        );
+      if (session?.id) await clearBossParticipants(session.id, code);
+      const s = await saveBossBattleSession(code, {
+        status: "waiting",
+        bossId: selectedBoss.id,
+        bossName: selectedBoss.name,
+        questionCount: qs.length,
+        timeLimitSeconds: Math.max(5, Math.min(180, seconds)),
+        selectedQuestions: qs,
+        roundPlan: plan,
+        currentRound: 0,
+        bossMaxHp: hp,
+        bossHp: hp,
+        lightningUnlocked: false,
+        defenseRoundsSinceLightning: 0,
+        victoryRewardItemId,
+        escapeRewardItemId,
+      });
+      setSession(s);
+      setParticipants([]);
+
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function start() {
+    if (!session || !participants.length) return alert("참여 학생이 없습니다.");
+    const plan = session.roundPlan?.length
+      ? session.roundPlan.map((round, index, rounds) =>
+          index === rounds.length - 1 ? { ...round, kind: "attack" as const } : round,
+        )
+      : buildRoundPlan(session.selectedQuestions);
+    const hp = calculateBossMaxHp(
+      participants.length,
+      plan.filter((x) => x.kind === "attack").length,
+    );
+    await resetBossParticipantStates(code, session.id);
+    setSession(
+      await saveBossBattleSession(code, {
+        ...session,
+        roundPlan: plan,
+        bossMaxHp: hp,
+        bossHp: hp,
+        currentRound: 0,
+        status: "entrance",
+        phaseStartedAt: new Date().toISOString(),
+        phaseEndsAt: new Date(Date.now() + 3400).toISOString(),
+      }),
+    );
+  }
+  async function finish() {
+    if (!session) return;
+    if (["defeated", "escaped", "wiped"].includes(session.status)) {
+      if (!confirm("결과를 닫고 모두 대기실로 돌아갈까요?")) return;
+      const reset = await saveBossBattleSession(code, { ...session, status: "waiting", currentRound: 0, bossHp: session.bossMaxHp, phaseStartedAt: undefined, phaseEndsAt: undefined, rewardGranted: false });
+      await resetBossParticipantStates(code, session.id);
+      setSession(reset);
+      return;
+    }
+    if (!confirm("정말 보스전을 끝내고 처음 화면으로 돌아가겠습니까?")) return;
+    await endBossBattleSession(code, session);
+    router.push("/");
+  }
+  async function goQuestion(
+    nextRound: number,
+    sourceSession: BossBattleSession | null = session,
+  ) {
+    if (!sourceSession) return;
+    if (nextRound >= sourceSession.roundPlan.length) {
+      setSession(
+        await saveBossBattleSession(code, {
+          ...sourceSession,
+          status:
+            sourceSession.bossHp <= 0
+              ? "defeated_transition"
+              : "escaped_transition",
+          phaseStartedAt: new Date().toISOString(),
+          phaseEndsAt: new Date(Date.now() + 3000).toISOString(),
+        }),
+      );
+      return;
+    }
+    setSession(
+      await saveBossBattleSession(code, {
+        ...sourceSession,
+        currentRound: nextRound,
+        status: "question",
+        phaseStartedAt: new Date().toISOString(),
+        phaseEndsAt: new Date(
+          Date.now() + sourceSession.timeLimitSeconds * 1000,
+        ).toISOString(),
+        debugEvent: undefined,
+      }),
+    );
+  }
+  async function resolveQuestion() {
+    if (!session || resolving.current) return;
+    resolving.current = true;
+    try {
+      const answers = await getBossAnswers(
+          code,
+          session.id,
+          session.currentRound,
+        ),
+        q = currentBossQuestion(session),
+        plan = session.roundPlan[session.currentRound];
+      if (!q || !plan) return;
+      const active = participants.filter((p) => !p.state.knockedOut);
+      const correctIds = new Set(
+        answers
+          .filter((a) => isBossAnswerCorrect(q, a.answer))
+          .map((a) => a.studentId),
+      );
+      for (const p of participants) {
+        if (p.state.knockedOut) {
+          if (correctIds.size > 0) {
+            const rp = p.state.reviveProgress + 1;
+            if (rp >= 3)
+              await updateBossParticipantState(code, session.id, p.studentId, {
+                knockedOut: false,
+                hp: 40,
+                reviveProgress: 0,
+                reviveCount: p.state.reviveCount + 1,
+                lastResult: "revived",
+              });
+            else
+              await updateBossParticipantState(code, session.id, p.studentId, {
+                reviveProgress: rp,
+              });
+          }
+          continue;
+        }
+        const ok = correctIds.has(p.studentId);
+        await updateBossParticipantState(code, session.id, p.studentId, {
+          correctCount: p.state.correctCount + (ok ? 1 : 0),
+          attackCorrectCount:
+            p.state.attackCorrectCount + (ok && plan.kind === "attack" ? 1 : 0),
+          defenseSuccessCount:
+            p.state.defenseSuccessCount +
+            (ok && plan.kind === "defense" ? 1 : 0),
+          lastResult: ok ? "correct" : "wrong",
+        });
+      }
+      if (plan.kind === "attack") {
+        setSession(
+          await saveBossBattleSession(code, {
+            ...session,
+            status: "answer_reveal",
+            phaseStartedAt: new Date().toISOString(),
+            phaseEndsAt: new Date(
+              Date.now() + ANSWER_REVEAL_SECONDS * 1000,
+            ).toISOString(),
+            bossRpsChoice: undefined,
+          }),
+        );
+      } else {
+        const attack = chooseBossAttack(session),
+          damage = scaledBossDamage(attack, session);
+        for (const p of active) {
+          if (correctIds.has(p.studentId)) continue;
+          await updateBossParticipantState(code, session.id, p.studentId, {
+            lastDamage: damage,
+            reviveProgress: 0,
+            lastResult: "pending_hit",
+          });
+        }
+        setSession(
+          await saveBossBattleSession(code, {
+            ...session,
+            status: "answer_reveal",
+            bossAttack: attack,
+            lightningUnlocked:
+              session.lightningUnlocked ||
+              attack === "lightning" ||
+              session.bossHp / session.bossMaxHp <= 0.5,
+            defenseRoundsSinceLightning:
+              attack === "lightning"
+                ? 0
+                : (session.defenseRoundsSinceLightning || 0) + 1,
+            phaseStartedAt: new Date().toISOString(),
+            phaseEndsAt: new Date(
+              Date.now() + ANSWER_REVEAL_SECONDS * 1000,
+            ).toISOString(),
+          }),
+        );
+      }
+    } finally {
+      resolving.current = false;
+    }
+  }
+  async function resolveRps() {
+    if (!session || resolving.current) return;
+    resolving.current = true;
+    try {
+      const answers = await getBossAnswers(
+          code,
+          session.id,
+          session.currentRound,
+        ),
+        bossChoice = session.bossRpsChoice || randomRps();
+      let total = 0;
+      for (const p of participants) {
+        const a = answers.find((x) => x.studentId === p.studentId);
+        const q = currentBossQuestion(session);
+        if (!a || !q || !isBossAnswerCorrect(q, a.answer) || !a.rpsChoice)
+          continue;
+        const choice = a.rpsChoice,
+          dmg = Math.round(10 * rpsMultiplier(choice, bossChoice));
+        total += dmg;
+        await updateBossParticipantState(code, session.id, p.studentId, {
+          totalDamage: p.state.totalDamage + dmg,
+          lastDamage: dmg,
+          lastResult: `${choice}/${bossChoice}`,
+        });
+      }
+      setSession(
+        await saveBossBattleSession(code, {
+          ...session,
+          bossRpsChoice: bossChoice,
+          roundDamage: total,
+          status: "rps_reveal",
+          phaseStartedAt: new Date().toISOString(),
+          phaseEndsAt: new Date(
+            Date.now() + RPS_REVEAL_SECONDS * 1000,
+          ).toISOString(),
+        }),
+      );
+    } finally {
+      resolving.current = false;
+    }
+  }
+  async function finishEntrance() {
+    if (!session || session.status !== "entrance" || phaseTimerBusy.current)
+      return;
+    phaseTimerBusy.current = true;
+    try {
+      setSession(
+        await saveBossBattleSession(code, {
+          ...session,
+          status: "transition",
+          phaseStartedAt: new Date().toISOString(),
+          phaseEndsAt: new Date(Date.now() + 600).toISOString(),
+        }),
+      );
+    } finally {
+      phaseTimerBusy.current = false;
+    }
+  }
+  useEffect(() => {
+    if (!session || session.status === "waiting") return;
+    let cancelled = false;
+    const run = async () => {
+      if (cancelled || phaseTimerBusy.current) return;
+      const now = Date.now(),
+        end = session.phaseEndsAt ? new Date(session.phaseEndsAt).getTime() : 0;
+      if (session.status === "entrance" && now >= end) {
+        await finishEntrance();
+        return;
+      }
+      if (session.status === "transition" && now >= end) {
+        phaseTimerBusy.current = true;
+        try {
+          setSession(
+            await saveBossBattleSession(code, {
+              ...session,
+              status: "roar",
+              phaseStartedAt: new Date().toISOString(),
+              phaseEndsAt: new Date(Date.now() + 3000).toISOString(),
+            }),
+          );
+        } finally {
+          phaseTimerBusy.current = false;
+        }
+        return;
+      }
+      if (session.status === "roar" && now >= end) {
+        phaseTimerBusy.current = true;
+        try {
+          await goQuestion(0);
+        } finally {
+          phaseTimerBusy.current = false;
+        }
+        return;
+      }
+      if (session.status === "question") {
+        const answers = await getBossAnswers(
+            code,
+            session.id,
+            session.currentRound,
+          ),
+          alive = participants.filter((p) => !p.state.knockedOut);
+        if (now >= end || (alive.length > 0 && answers.length >= alive.length))
+          await resolveQuestion();
+        return;
+      }
+      if (session.status === "answer_reveal" && now >= end) {
+        const kind = session.roundPlan[session.currentRound]?.kind;
+        phaseTimerBusy.current = true;
+        try {
+          if (kind === "attack")
+            setSession(
+              await saveBossBattleSession(code, {
+                ...session,
+                status: "rps",
+                phaseStartedAt: new Date().toISOString(),
+                phaseEndsAt: new Date(
+                  Date.now() + RPS_TIME_SECONDS * 1000,
+                ).toISOString(),
+              }),
+            );
+          else
+            setSession(
+              await saveBossBattleSession(code, {
+                ...session,
+                status: "defense_reveal",
+                phaseStartedAt: new Date().toISOString(),
+                phaseEndsAt: new Date(
+                  Date.now() + DEFENSE_REVEAL_SECONDS * 1000,
+                ).toISOString(),
+              }),
+            );
+        } finally {
+          phaseTimerBusy.current = false;
+        }
+        return;
+      }
+      if (session.status === "rps") {
+        const answers = await getBossAnswers(
+            code,
+            session.id,
+            session.currentRound,
+          ),
+          q = currentBossQuestion(session);
+        const eligible = q
+          ? answers.filter((a) => isBossAnswerCorrect(q, a.answer))
+          : [];
+        if (
+          now >= end ||
+          eligible.length === 0 ||
+          eligible.every((a) => !!a.rpsChoice)
+        )
+          await resolveRps();
+        return;
+      }
+      if (session.status === "rps_reveal" && now >= end) {
+        phaseTimerBusy.current = true;
+        try {
+          if ((session.roundDamage || 0) > 0)
+            setSession(
+              await saveBossBattleSession(code, {
+                ...session,
+                status: "player_attack",
+                phaseStartedAt: new Date().toISOString(),
+                phaseEndsAt: new Date(Date.now() + 1400).toISOString(),
+              }),
+            );
+          else await goQuestion(session.currentRound + 1);
+        } finally {
+          phaseTimerBusy.current = false;
+        }
+        return;
+      }
+      if (session.status === "defense_reveal" && now >= end) {
+        const duration =
+          session.bossAttack === "lightning"
+            ? 3000
+            : session.bossAttack === "clawCombo"
+              ? 2600
+              : 1700;
+        phaseTimerBusy.current = true;
+        try {
+          setSession(
+            await saveBossBattleSession(code, {
+              ...session,
+              status: "boss_attack",
+              phaseStartedAt: new Date().toISOString(),
+              phaseEndsAt: new Date(Date.now() + duration).toISOString(),
+            }),
+          );
+        } finally {
+          phaseTimerBusy.current = false;
+        }
+        return;
+      }
+      if (session.status === "boss_attack" && now >= end) {
+        const refreshed = await getBossParticipants(code, session.id, false),
+          pending = refreshed.filter(
+            (p) => p.state.lastResult === "pending_hit" && !p.state.knockedOut,
+          );
+        phaseTimerBusy.current = true;
+        try {
+          if (pending.length) {
+            for (const p of pending) {
+              const damage =
+                  p.state.lastDamage ||
+                  scaledBossDamage(session.bossAttack, session),
+                hp = Math.max(0, p.state.hp - damage);
+              await updateBossParticipantState(code, session.id, p.studentId, {
+                hp,
+                knockedOut: hp <= 0,
+                lastResult: "hit",
+              });
+            }
+            let healedSession = session;
+            if (session.bossEndured && pending.length > 0) {
+              const perStudent = Math.max(
+                1,
+                Math.round(session.bossMaxHp * 0.002),
+              );
+              const healCap = Math.max(1, Math.round(session.bossMaxHp * 0.02));
+              const healAmount = Math.min(healCap, perStudent * pending.length);
+              const healedHp = Math.min(
+                session.bossMaxHp,
+                session.bossHp + healAmount,
+              );
+              healedSession = await saveBossBattleSession(code, {
+                ...session,
+                bossHp: healedHp,
+                bossHealAmount: healedHp - session.bossHp,
+                bossNotice: `보스가 체력을 ${healedHp - session.bossHp} 회복합니다!`,
+                bossNoticeUntil: new Date(Date.now() + 4500).toISOString(),
+              });
+              setSession(healedSession);
+            }
+            const after = await getBossParticipants(code, session.id, false),
+              allDead =
+                after.length > 0 && after.every((p) => p.state.knockedOut);
+            if (allDead)
+              setSession(
+                await saveBossBattleSession(code, {
+                  ...healedSession,
+                  status: "wiped",
+                }),
+              );
+            else
+              setSession(
+                await saveBossBattleSession(code, {
+                  ...healedSession,
+                  status: "student_hit",
+                  phaseStartedAt: new Date().toISOString(),
+                  phaseEndsAt: new Date(Date.now() + 1000).toISOString(),
+                }),
+              );
+          } else {
+            // 학생 클라이언트가 백그라운드 탭 복귀 시 자신의 피해를 먼저
+            // 확정했을 수 있으므로, pending 목록이 비어도 전멸/피격 상태를 재확인한다.
+            const after = await getBossParticipants(code, session.id, false);
+            const allDead = after.length > 0 && after.every((p) => p.state.knockedOut);
+            const anyHit = after.some((p) => p.state.lastResult === "hit");
+            if (allDead)
+              setSession(await saveBossBattleSession(code, { ...session, status: "wiped" }));
+            else if (anyHit)
+              setSession(await saveBossBattleSession(code, {
+                ...session,
+                status: "student_hit",
+                phaseStartedAt: new Date().toISOString(),
+                phaseEndsAt: new Date(Date.now() + 1000).toISOString(),
+              }));
+            else await goQuestion(session.currentRound + 1);
+          }
+        } finally {
+          phaseTimerBusy.current = false;
+        }
+        return;
+      }
+      if (session.status === "player_attack" && now >= end) {
+        phaseTimerBusy.current = true;
+        try {
+          const isLastQuestion =
+            session.currentRound >= session.roundPlan.length - 1;
+          const rawHp = Math.max(
+            0,
+            session.bossHp - (session.roundDamage || 0),
+          );
+          const enduredNow = !isLastQuestion && rawHp <= 0;
+          const hp = enduredNow ? 1 : rawHp;
+          const updated = await saveBossBattleSession(code, {
+            ...session,
+            bossHp: hp,
+            roundDamage: 0,
+            bossEndured: session.bossEndured || enduredNow,
+            ...(enduredNow
+              ? {
+                  bossNotice: "보스가 버텨냈습니다!",
+                  bossNoticeUntil: new Date(Date.now() + 4500).toISOString(),
+                  bossHealAmount: 0,
+                }
+              : {}),
+            ...(hp <= 0
+              ? {
+                  status: "defeated_transition" as const,
+                  phaseStartedAt: new Date().toISOString(),
+                  phaseEndsAt: new Date(Date.now() + 3000).toISOString(),
+                }
+              : {}),
+          });
+          setSession(updated);
+          if (hp > 0) await goQuestion(session.currentRound + 1, updated);
+        } finally {
+          phaseTimerBusy.current = false;
+        }
+        return;
+      }
+      if (
+        (session.status === "defeated_transition" ||
+          session.status === "escaped_transition") &&
+        now >= end
+      ) {
+        phaseTimerBusy.current = true;
+        try {
+          setSession(
+            await saveBossBattleSession(code, {
+              ...session,
+              status:
+                session.status === "defeated_transition"
+                  ? "defeated"
+                  : "escaped",
+              phaseStartedAt: new Date().toISOString(),
+              phaseEndsAt: undefined,
+            }),
+          );
+        } finally {
+          phaseTimerBusy.current = false;
+        }
+        return;
+      }
+      if (session.status === "student_hit" && now >= end) {
+        phaseTimerBusy.current = true;
+        try {
+          await goQuestion(session.currentRound + 1);
+        } finally {
+          phaseTimerBusy.current = false;
+        }
+      }
+    };
+    void run();
+    const timer = window.setInterval(() => void run(), 200);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [
+    session?.id,
+    session?.status,
+    session?.phaseEndsAt,
+    session?.currentRound,
+    participants.length,
+  ]);
+  async function debugEvent(e: string) {
+    if (!session) return;
+    if (e === "boss-death")
+      setSession(
+        await saveBossBattleSession(code, {
+          ...session,
+          bossHp: 0,
+          status: "defeated",
+        }),
+      );
+    else if (e === "boss-hit")
+      setSession(
+        await saveBossBattleSession(code, {
+          ...session,
+          status: "player_attack",
+          phaseEndsAt: new Date(Date.now() + 1400).toISOString(),
+        }),
+      );
+    else if (e === "student-hit")
+      setSession(
+        await saveBossBattleSession(code, {
+          ...session,
+          status: "boss_attack",
+          bossAttack: "claw1",
+          phaseEndsAt: new Date(Date.now() + 1400).toISOString(),
+        }),
+      );
+    else if (["claw1", "claw2", "clawCombo", "lightning"].includes(e))
+      setSession(
+        await saveBossBattleSession(code, {
+          ...session,
+          status: "boss_attack",
+          bossAttack: e as any,
+          phaseEndsAt: new Date(Date.now() + 1600).toISOString(),
+        }),
+      );
+  }
+  const joined = participants
+    .map((p) => students.find((s) => s.id === p.studentId))
+    .filter(Boolean) as Student[];
+  if (session && session.status !== "waiting")
+    return (
+      <>
+        <div className="fixed left-3 top-3 z-[120]">
+          <Button variant="destructive" onClick={finish}>
+            <StopCircle className="mr-2 h-4 w-4" />
+            보스전 끝내기
+          </Button>
+        </div>
+        <BossBattleArena
+          session={session}
+          isTeacher
+          teacherStudents={joined}
+          teacherParticipants={participants}
+          onDebug={debugEvent}
+          onEntranceEnded={finishEntrance}
+          onFinish={finish}
+        />
+      </>
+    );
+  return (
+    <main className="min-h-screen bg-slate-950 p-3 text-white md:p-6">
+      <div className="mx-auto max-w-7xl space-y-4">
+        <div className="flex items-center justify-between">
+          <Button
+            className="bg-white text-black"
+            onClick={() => router.push(`/`)}
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            처음으로
+          </Button>
+          <b>
+            {selectedBoss.grade}학년 {selectedBoss.semester}학기{" "}
+            {selectedBoss.unit}단원 마무리 문제
+          </b>
+          <div className="flex gap-2">
+            <BossWaitingRoomBgm />
+            {session && (
+              <Button variant="destructive" onClick={finish}>
+                보스전 끝내기
+              </Button>
+            )}
+          </div>
+        </div>
+        <Card className="bg-amber-50">
+          <CardContent className="grid gap-4 p-4 text-slate-900 md:grid-cols-[160px_180px_1fr_auto]">
+            <div>
+              <Label>문제 수</Label>
+              <Input
+                type="number"
+                value={count}
+                onChange={(e) => setCount(+e.target.value)}
+              />
+            </div>
+            <div>
+              <Label>제한시간</Label>
+              <Input
+                type="number"
+                value={seconds}
+                onChange={(e) => setSeconds(+e.target.value)}
+              />
+            </div>
+            <div>공격 1~2문제 뒤 방어 1문제가 자동 배치됩니다.</div>
+            <div className="flex gap-2">
+              <Button onClick={createRoom}>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                방 만들기
+              </Button>
+              {session && <div className="rounded bg-slate-900 px-4 py-2 font-mono text-xl font-black text-white">방 코드 {code}</div>}
+              <Button variant="outline" onClick={()=>setQrOpen(true)} disabled={!session} className="text-black"><QrCode className="mr-2 h-4 w-4"/>QR코드 보기</Button>
+              <Button onClick={start} disabled={!session}>
+                <Play className="mr-2 h-4 w-4" />
+                토벌전 시작
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+        <details className="rounded-lg bg-white p-3 text-black">
+          <summary className="cursor-pointer font-bold">문제 선택</summary>
+          <p className="my-2 rounded border border-blue-200 bg-blue-50 p-2 text-sm text-blue-900">아무 문제도 선택하지 않으면 준비된 총 {HAETAE_PREPARED_QUESTION_COUNT}문항 중 설정한 문제 수만큼 무작위로 출제됩니다.</p>
+          <div className="space-y-3">{HAETAE_PREPARED_QUIZ_GROUPS.map(group=><details key={group.id} className="rounded border p-2"><summary className="cursor-pointer font-bold">{group.title} ({group.questions.length}문항)</summary><div className="mt-2 space-y-2">{group.questions.map(question=><label key={question.id} className="flex cursor-pointer items-start gap-2 rounded p-1 hover:bg-slate-50"><Checkbox checked={!!preparedSelected[question.id]} onCheckedChange={value=>setPreparedSelected(previous=>({...previous,[question.id]:!!value}))}/><span className="text-sm">{question.text}</span></label>)}</div></details>)}</div>
+        </details>
+        <section
+          className="relative min-h-[560px] overflow-hidden rounded-xl border-4 border-amber-400 bg-cover"
+          style={{ backgroundImage: "url('/boss-battle/waiting-room.png')" }}
+        >
+          <div className="absolute left-3 top-3 rounded bg-black/70 p-2">
+            <Users className="inline" /> {joined.length}/40
+          </div>
+          <div className="absolute bottom-[calc(4%+60px)] left-[2%] right-[2%] flex h-[58%] items-start justify-center overflow-hidden">
+            {(() => {
+              const sorted = [...joined].sort(
+                (a, b) =>
+                  Number(a.attendanceNumber) - Number(b.attendanceNumber),
+              );
+              const rows = [sorted.slice(0, 6)];
+              for (let i = 6; i < sorted.length; i += 9)
+                rows.push(sorted.slice(i, i + 9));
+              const scale =
+                joined.length <= 4 ? 1 : joined.length === 5 ? 0.9 : 0.82;
+              return (
+                <div className="flex max-w-full flex-col items-center gap-1">
+                  {rows.map((row, ri) => (
+                    <div key={ri} className="flex justify-center gap-1">
+                      {row.map((s) => (
+                        <div key={s.id} className="relative">
+                          <BossWaitingParticipant
+                            student={s}
+                            label={s.nickname}
+                            scale={scale}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+          </div>
+        </section>
+      </div>
+      {qrOpen && <div className="fixed inset-0 z-[300] grid place-items-center bg-black/75 p-4"><div className="relative rounded-2xl bg-white p-7 text-center text-slate-950"><button className="absolute right-3 top-3" onClick={()=>setQrOpen(false)}><X/></button><h2 className="mb-3 text-2xl font-black">학생 입장 QR 코드</h2><img className="mx-auto h-80 w-80" alt="방 입장 QR 코드" src={`https://api.qrserver.com/v1/create-qr-code/?size=640x640&data=${encodeURIComponent(`${window.location.origin}/student?code=${code}`)}`}/><div className="mt-3 font-mono text-3xl font-black">{code}</div><p className="mt-2 text-sm text-slate-600">QR 스캔 후 방 코드가 자동 입력됩니다.</p></div></div>}
+    </main>
+  );
+}
