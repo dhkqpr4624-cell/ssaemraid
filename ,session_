@@ -1,0 +1,33 @@
+
+> my-project@0.1.0 dev /home/ubuntu/project_analysis
+> next dev
+
+▲ Next.js 16.2.4 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://169.254.0.21:3000
+✓ Ready in 540ms
+
+ GET / 200 in 1049ms (next.js: 638ms, application-code: 412ms)
+ GET /teacher 200 in 78ms (next.js: 25ms, application-code: 53ms)
+ GET /teacher/dashboard?code=7O4PPY 200 in 60ms (next.js: 17ms, application-code: 43ms)
+ GET /teacher/quiz/create?code=7O4PPY 200 in 58ms (next.js: 22ms, application-code: 36ms)
+ GET /teacher/dashboard?code=7O4PPY 200 in 34ms (next.js: 4ms, application-code: 30ms)
+ GET /teacher 200 in 29ms (next.js: 3ms, application-code: 26ms)
+ GET /teacher/dashboard?code=7O4PPY 200 in 32ms (next.js: 5ms, application-code: 27ms)
+ GET /teacher/quiz/create?code=7O4PPY 200 in 35ms (next.js: 4ms, application-code: 31ms)
+ GET /teacher/dashboard?code=7O4PPY 200 in 31ms (next.js: 4ms, application-code: 27ms)
+ GET /teacher 200 in 25ms (next.js: 3ms, application-code: 22ms)
+ GET / 200 in 24ms (next.js: 3ms, application-code: 20ms)
+ GET /student 200 in 53ms (next.js: 21ms, application-code: 31ms)
+ GET /student/dashboard 200 in 51ms (next.js: 20ms, application-code: 31ms)
+ GET /student/avatar 200 in 826ms (next.js: 766ms, application-code: 60ms)
+ GET /student/quiz?id=quiz-1777355408660-2s3k4yj 200 in 77ms (next.js: 38ms, application-code: 39ms)
+ GET /student/dashboard 200 in 27ms (next.js: 3ms, application-code: 24ms)
+ GET /student/avatar 200 in 27ms (next.js: 3ms, application-code: 25ms)
+ GET /student/quiz?id=quiz-1777355408660-2s3k4yj 200 in 38ms (next.js: 4ms, application-code: 35ms)
+ GET /student/dashboard 200 in 30ms (next.js: 3ms, application-code: 27ms)
+ GET /student/avatar 200 in 26ms (next.js: 3ms, application-code: 23ms)
+ GET /student 200 in 24ms (next.js: 3ms, application-code: 21ms)
+ GET / 200 in 24ms (next.js: 3ms, application-code: 21ms)
+ GET /student 200 in 26ms (next.js: 3ms, application-code: 22ms)
+ GET /student/dashboard 200 in 28ms (next.js: 3ms, application-code: 25ms)
