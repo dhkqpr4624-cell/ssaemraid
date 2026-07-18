@@ -1,0 +1,177 @@
+{
+  "title": "법의 역할을 알아볼까요",
+  "questions": [
+    {
+      "id": "f8a52bb0-840b-4f30-bc5f-7d682afa572c",
+      "hint": "",
+      "text": "어떤 일을 하거나 다른 사람에게 요구할 힘이나 자격을 OO(이)라고 한다.",
+      "type": "short",
+      "order": 1,
+      "points": 10,
+      "quizId": "shared-quiz",
+      "options": [],
+      "shortAnswers": [
+        "권리"
+      ],
+      "correctAnswers": []
+    },
+    {
+      "id": "a01595f1-cd20-418f-b4e2-99515ad5dffb",
+      "hint": "",
+      "text": "침범하여 해를 끼치는 것을 OO(이)라고 한다.",
+      "type": "short",
+      "order": 2,
+      "points": 10,
+      "quizId": "shared-quiz",
+      "options": [],
+      "shortAnswers": [
+        "침해"
+      ],
+      "correctAnswers": []
+    },
+    {
+      "id": "314d643c-af29-4d87-9288-6e9b58054cc2",
+      "hint": "",
+      "text": "법은 권리가 침해되어 입은 피해를 해결하는데 도움을 주지 않는다.",
+      "type": "single",
+      "order": 3,
+      "points": 10,
+      "quizId": "shared-quiz",
+      "options": [
+        "O",
+        "X"
+      ],
+      "shortAnswers": [],
+      "correctAnswers": [
+        1
+      ]
+    },
+    {
+      "id": "4688742a-0867-497a-b5a8-f3c6213aff7d",
+      "hint": "",
+      "text": "법은 사회에서 발생할 수 있는 안 좋은 일로부터 사람들을 보호해주며 (사회 OO)를 유지하는 역할을 한다.",
+      "type": "short",
+      "order": 4,
+      "points": 10,
+      "quizId": "shared-quiz",
+      "options": [],
+      "shortAnswers": [
+        "질서",
+        "사회 질서",
+        "사회질서"
+      ],
+      "correctAnswers": []
+    },
+    {
+      "id": "1ac016b8-eb70-4de4-ae2e-3da2c192bd40",
+      "hint": "",
+      "text": "법의 역할과 관련한 설명으로 옳지 않은 것을 고르시오.",
+      "type": "single",
+      "order": 5,
+      "points": 10,
+      "quizId": "shared-quiz",
+      "options": [
+        "법은 국가가 개인의 권리를 침해하는 것 또한 막는다.",
+        "환경 오염을 방지하는 것은 법의 역할에 해당한다.",
+        "질병 확산을 막는 것은 법의 역할에 해당한다.",
+        "재난 등이 발생할 때 구호활동을 하고 대책을 마련하는 것은 법의 역할이 아니다."
+      ],
+      "shortAnswers": [],
+      "correctAnswers": [
+        3
+      ]
+    },
+    {
+      "id": "c936e01a-d636-4bef-bedc-10f4f404161c",
+      "hint": "",
+      "text": "법의 역할 중 '사회 질서 유지'에 해당 하는 것을 모두 고르시오.",
+      "type": "multiple",
+      "order": 6,
+      "points": 10,
+      "quizId": "shared-quiz",
+      "options": [
+        "교통 사고를 예방한다.",
+        "개인 정보를 보호한다.",
+        "재난 등 사고가 일어났을 때 구호활동을 하고 예방 대책을 세운다.",
+        "질병 확산을 예방한다."
+      ],
+      "shortAnswers": [],
+      "correctAnswers": [
+        0,
+        3
+      ]
+    },
+    {
+      "id": "ea654f58-ae77-49f8-bd93-4fe091d861fd",
+      "hint": "",
+      "text": "법의 역할 중 '개인의 권리 보호'에 해당 하는 것을 모두 고르시오.",
+      "type": "multiple",
+      "order": 7,
+      "points": 10,
+      "quizId": "shared-quiz",
+      "options": [
+        "범죄로부터 안전하게 지켜준다.",
+        "판매되는 물건의 품질, 안전성을 보장한다.",
+        "환경 오염을 막아 쾌적하게 살 수 있는 환경을 만든다. ",
+        "재판을 통해 사람 사이의 다툼을 해결하고, 해결책을 제시한다."
+      ],
+      "shortAnswers": [],
+      "correctAnswers": [
+        1,
+        3
+      ]
+    },
+    {
+      "id": "f62e37eb-9447-42d1-96dd-32876cbc4965",
+      "hint": "",
+      "text": "전동 킥보드를 탈 때 안전모를 착용하도록 한 법의 목적은 무엇일지 알맞은 것을 고르시오.",
+      "type": "single",
+      "order": 8,
+      "points": 10,
+      "quizId": "shared-quiz",
+      "options": [
+        "공부를 열심히 하게 하려고",
+        "운동을 많이 하게 하려고",
+        "사회 질서를 유지하려고",
+        "전동 킥보드와 어울리는 패션 감각을 기르려고"
+      ],
+      "shortAnswers": [],
+      "correctAnswers": [
+        2
+      ]
+    },
+    {
+      "id": "efa2fd86-1d3f-4628-9a0a-afbf75157564",
+      "hint": "",
+      "text": "모든 사람이 권리를 보장받는 사회를 위해서는 법을 지키고자 하는 OO 태도가 필요합니다.",
+      "type": "short",
+      "order": 9,
+      "points": 10,
+      "quizId": "shared-quiz",
+      "options": [],
+      "shortAnswers": [
+        "준법"
+      ],
+      "correctAnswers": []
+    },
+    {
+      "id": "4ec09f54-0c24-4fa1-b2b7-f0f5790eaa62",
+      "hint": "",
+      "text": "'어린이 제품 안전 특별법'을 통해 어린이용 물놀이 튜브가 판매 전 안전 인증을 받도록 한 이유로 가장 가까운 것을 고르시오.",
+      "type": "single",
+      "order": 10,
+      "points": 10,
+      "quizId": "shared-quiz",
+      "options": [
+        "재미있는 물놀이를 위해",
+        "개인의 권리 보호를 위해",
+        "물놀이와 어울리는 패션 감각을 위해",
+        "사회 질서 유지를 위해"
+      ],
+      "shortAnswers": [],
+      "correctAnswers": [
+        1
+      ]
+    }
+  ]
+}

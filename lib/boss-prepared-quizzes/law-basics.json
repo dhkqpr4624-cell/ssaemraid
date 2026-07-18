@@ -1,0 +1,179 @@
+{
+  "title": "법이란 무엇일까요",
+  "questions": [
+    {
+      "id": "shared-question-1781668713743-0",
+      "hint": "",
+      "text": "갈등을 해결하고 사회 질서를 유지하기 위해서 필요한 약속이나 규칙을 ( OOOO )이라고 한다.",
+      "type": "short",
+      "order": 1,
+      "points": 10,
+      "quizId": "shared-quiz",
+      "options": [],
+      "shortAnswers": [
+        "사회규범",
+        "사회 규범"
+      ],
+      "correctAnswers": []
+    },
+    {
+      "id": "shared-question-1781668713743-1",
+      "hint": "",
+      "text": "법은 양심에 따라 자유롭게 지킬지 말지 결정할 수 있는 사회 규범이다.",
+      "type": "single",
+      "order": 2,
+      "points": 10,
+      "quizId": "shared-quiz",
+      "options": [
+        "O",
+        "X"
+      ],
+      "shortAnswers": [],
+      "correctAnswers": [
+        1
+      ]
+    },
+    {
+      "id": "shared-question-1781668713743-2",
+      "hint": "",
+      "text": "국가가 만든 사회 규범으로, 국가 구성원이라면 누구나 지켜야 하는 것은 무엇인지 쓰시오.",
+      "type": "short",
+      "order": 3,
+      "points": 10,
+      "quizId": "shared-quiz",
+      "options": [],
+      "shortAnswers": [
+        "법"
+      ],
+      "correctAnswers": []
+    },
+    {
+      "id": "shared-question-1781668713744-3",
+      "hint": "",
+      "text": "법을 어겼을 때 국가가 처벌하거나 금지 등을 하는 것을 (ㅈㅈ)라고 한다.",
+      "type": "short",
+      "order": 4,
+      "points": 10,
+      "quizId": "shared-quiz",
+      "options": [],
+      "shortAnswers": [
+        "제재"
+      ],
+      "correctAnswers": []
+    },
+    {
+      "id": "shared-question-1781668713744-4",
+      "hint": "",
+      "text": "법의 특징으로 가장 알맞은 것을 고르시오.",
+      "type": "single",
+      "order": 5,
+      "points": 10,
+      "quizId": "shared-quiz",
+      "options": [
+        "원하는 사람만 지킨다.",
+        "국가가 만든 사회 규범이다.",
+        "어린이만 지킨다.",
+        "지키지 않아도 아무 문제가 없다."
+      ],
+      "shortAnswers": [],
+      "correctAnswers": [
+        1
+      ]
+    },
+    {
+      "id": "shared-question-1781668713744-5",
+      "hint": "",
+      "text": "법과 구별되는 도덕의 특징으로 올바른 것을 모두 고르시오.",
+      "type": "multiple",
+      "order": 6,
+      "points": 10,
+      "quizId": "shared-quiz",
+      "options": [
+        "지키지 않는다고 해서 제재를 받지는 않는다.",
+        "어린이만 지킨다.",
+        "양심에 따라 지킨다.",
+        "사회 규범이다."
+      ],
+      "shortAnswers": [],
+      "correctAnswers": [
+        0,
+        2,
+        3
+      ]
+    },
+    {
+      "id": "shared-question-1781668713744-6",
+      "hint": "",
+      "text": "법은 국가의 구성원이라면 누구나 지켜야 하는 (ㄱㅈㅅ)이 있다.",
+      "type": "short",
+      "order": 7,
+      "points": 10,
+      "quizId": "shared-quiz",
+      "options": [],
+      "shortAnswers": [
+        "강제성"
+      ],
+      "correctAnswers": []
+    },
+    {
+      "id": "shared-question-1781668713744-7",
+      "hint": "",
+      "text": "'모든 부모는 자녀가 일정한 나이가 되면 초등학교에 다니게 해야 한다.' 라는 내용이 담긴 법을 고르시오.",
+      "type": "single",
+      "order": 8,
+      "points": 10,
+      "quizId": "shared-quiz",
+      "options": [
+        "초 중등 교육법",
+        "도로 교통법",
+        "어린이 놀이 시설 안전 관리법",
+        "저작권법"
+      ],
+      "shortAnswers": [],
+      "correctAnswers": [
+        0
+      ]
+    },
+    {
+      "id": "shared-question-1781668713744-8",
+      "hint": "",
+      "text": "태수는 VR 기기를 샀는데, 기기가 불량이었습니다. 태수가 VR 기기를 산 매장에서 VR 기기를 환불 받고자 하였는데, 가게 사장님은 아무것도 해주지 못한다고 하였습니다. 이때, 가게 사장은 어떤 법을 어긴 것인가요?",
+      "type": "single",
+      "order": 9,
+      "points": 10,
+      "quizId": "shared-quiz",
+      "options": [
+        "저작권법",
+        "도로교통법",
+        "소비자 기본법",
+        "가족 관계의 등록 등에 관한 법률"
+      ],
+      "shortAnswers": [],
+      "correctAnswers": [
+        2
+      ]
+    },
+    {
+      "id": "shared-question-1781668713744-9",
+      "hint": "",
+      "text": "다음 중 법과 관련된 상황을 모두 고르시오.",
+      "type": "multiple",
+      "order": 10,
+      "points": 10,
+      "quizId": "shared-quiz",
+      "options": [
+        "악성 댓글을 다는 것",
+        "봉사하지 않은 것",
+        "어른을 보고 인사하지 않는 것",
+        "다른 사람의 얼굴을 SNS에 허락 없이 올리는 것",
+        "쓰레기, 담배꽁초 등을 길거리에 함부로 버리는 것"
+      ],
+      "shortAnswers": [],
+      "correctAnswers": [
+        3,
+        0,
+        4
+      ]
+    }
+  ]
+}

@@ -1,0 +1,186 @@
+{
+  "title": "헌법에 보장된 인권의 사례를 찾아볼까요",
+  "questions": [
+    {
+      "id": "fdf91ab4-76fd-4cb7-b7bf-1cc16a190a4c",
+      "hint": "",
+      "text": "사람이 태어나면서부터 가지는 권리를 OO라고 한다.",
+      "type": "short",
+      "order": 1,
+      "points": 10,
+      "quizId": "shared-quiz",
+      "options": [],
+      "shortAnswers": [
+        "인권"
+      ],
+      "correctAnswers": []
+    },
+    {
+      "id": "2a941a57-4652-45eb-a91f-cae09b75f6f9",
+      "hint": "",
+      "text": "1948년 12월 10일 국제 연합 총회에서는 사람이 태어나면서부터 가지는 권리와 관련한 30개 조항으로 구성된 (OO OO OO)을 발표했습니다.",
+      "type": "short",
+      "order": 2,
+      "points": 10,
+      "quizId": "shared-quiz",
+      "options": [],
+      "shortAnswers": [
+        "세계인권선언",
+        "세계 인권선언",
+        "세계인권 선언",
+        "세계 인권 선언"
+      ],
+      "correctAnswers": []
+    },
+    {
+      "id": "c016e223-76cd-475f-9d90-ec557e9adad4",
+      "hint": "",
+      "text": "인권은 다른 사람이 힘이나 권력을 이용하면 빼앗을 수 있다.",
+      "type": "single",
+      "order": 3,
+      "points": 10,
+      "quizId": "shared-quiz",
+      "options": [
+        "O",
+        "X"
+      ],
+      "shortAnswers": [],
+      "correctAnswers": [
+        1
+      ]
+    },
+    {
+      "id": "1b30cfdb-07bf-4e6f-b322-81c3848bca0e",
+      "hint": "",
+      "text": "국가를 운영하기 위한 기본적 가치를 담고 있는 국가의 최고 법은 OO이다.",
+      "type": "short",
+      "order": 4,
+      "points": 10,
+      "quizId": "shared-quiz",
+      "options": [],
+      "shortAnswers": [
+        "헌법"
+      ],
+      "correctAnswers": []
+    },
+    {
+      "id": "5d0f4551-76d9-48c1-8b15-a313661cb7a8",
+      "hint": "",
+      "text": "국민의 기본적 인권은 헌법에 나타나 있다.",
+      "type": "single",
+      "order": 5,
+      "points": 10,
+      "quizId": "shared-quiz",
+      "options": [
+        "O",
+        "X"
+      ],
+      "shortAnswers": [],
+      "correctAnswers": [
+        0
+      ]
+    },
+    {
+      "id": "1a81af7f-5cdb-4362-bac2-38ba1388076b",
+      "hint": "",
+      "text": "세계 인권 선언의 제 1조 내용입니다. 빈칸에 들어갈 단어로 알맞은 것을 고르시오\n제 1조: 모든 사람은 태어날 때부터 (  ㄱ  )롭고  (  ㄴ  )해요.",
+      "type": "single",
+      "order": 6,
+      "points": 10,
+      "quizId": "shared-quiz",
+      "options": [
+        "ㄱ: 슬기, ㄴ:공평",
+        "ㄱ:자유, ㄴ: 공평",
+        "ㄱ: 자유, ㄴ: 평등",
+        "ㄱ: 자유, ㄴ:평범"
+      ],
+      "shortAnswers": [],
+      "correctAnswers": [
+        2
+      ]
+    },
+    {
+      "id": "54affdf4-c6ea-4288-be30-9b649baea4b3",
+      "hint": "",
+      "text": "다음 중 헌법이 보장하는 권리에 해당하는 것으로 옳은 것을 고르시오.",
+      "type": "single",
+      "order": 7,
+      "points": 10,
+      "quizId": "shared-quiz",
+      "options": [
+        "친구를 괴롭힐 권리",
+        "다른 사람을 차별할 권리",
+        "자신의 생각을 자유롭게 말할 권리",
+        "규칙을 마음대로 어길 권리"
+      ],
+      "shortAnswers": [],
+      "correctAnswers": [
+        2
+      ]
+    },
+    {
+      "id": "3ef6def5-012d-47fc-97cb-5151047dad8a",
+      "hint": "",
+      "text": "다음은 헌법 제 10조 내용의 일부입니다. 빈칸에 알맞은 말을 채우십시오.\n\n제 10조: 모든 국민은 인간으로서의 존엄과 가치를 가지며, (OO)을/를 추구할 권리를 가진다. ···",
+      "type": "short",
+      "order": 8,
+      "points": 10,
+      "quizId": "shared-quiz",
+      "options": [],
+      "shortAnswers": [
+        "행복"
+      ],
+      "correctAnswers": []
+    },
+    {
+      "id": "f3d4800b-7766-4e32-aec7-d60dc7c27ccc",
+      "hint": "",
+      "text": "다음은 헌법 제 10조 내용의 일부입니다. 빈칸에 알맞은 말을 채우십시오.\n\n제 10조:  ···. 국가는 개인이 가지는 불가침의 기본적 (OO)을/를 확인하고 이를 보장할 의무를 진다.",
+      "type": "short",
+      "order": 9,
+      "points": 10,
+      "quizId": "shared-quiz",
+      "options": [],
+      "shortAnswers": [
+        "인권"
+      ],
+      "correctAnswers": []
+    },
+    {
+      "id": "7fca5ecd-c7a0-4e86-82c5-33d87acde858",
+      "hint": "",
+      "text": "다음은 헌법 제 37조 내용입니다. 빈칸에 들어갈 알맞은 말을 채우십시오.\n\n제 37조: 국민의 자유와 (OO)은/는 헌법에 열거되지 아니한 이유로 경시되지 아니한다.",
+      "type": "short",
+      "order": 10,
+      "points": 10,
+      "quizId": "shared-quiz",
+      "options": [],
+      "shortAnswers": [
+        "권리"
+      ],
+      "correctAnswers": []
+    },
+    {
+      "id": "51fc7d4a-4a76-4606-8c61-10690f64b301",
+      "hint": "",
+      "text": "다음 중 헌법이 보장하는 권리에 해당하는 것을 모두 고르시오.",
+      "type": "multiple",
+      "order": 11,
+      "points": 10,
+      "quizId": "shared-quiz",
+      "options": [
+        "자유롭게 생각을 말한다.",
+        "교육을 받는다.",
+        "투표에 참여한다.",
+        "다른 사람과 동등하게 대우받는다."
+      ],
+      "shortAnswers": [],
+      "correctAnswers": [
+        0,
+        1,
+        2,
+        3
+      ]
+    }
+  ]
+}

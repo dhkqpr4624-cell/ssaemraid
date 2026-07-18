@@ -1,0 +1,181 @@
+{
+  "title": "일상생활 속 인권 침해 사례를 살펴볼까요",
+  "questions": [
+    {
+      "id": "shared-question-1783487815634-0",
+      "hint": "",
+      "text": "인권을 존중받지 못하여 어려움을 겪게 되는 일이 발생할 수 있는데, 이를 (OOOO)이라고 말한다.",
+      "type": "short",
+      "order": 1,
+      "points": 10,
+      "quizId": "shared-quiz",
+      "options": [],
+      "shortAnswers": [
+        "인권침해",
+        "인권 침해"
+      ],
+      "correctAnswers": []
+    },
+    {
+      "id": "shared-question-1783487815634-1",
+      "hint": "",
+      "text": "인권 침해는 법이나 제도 문제로 발생할 수 있다.",
+      "type": "single",
+      "order": 2,
+      "points": 10,
+      "quizId": "shared-quiz",
+      "options": [
+        "O",
+        "X"
+      ],
+      "shortAnswers": [],
+      "correctAnswers": [
+        0
+      ]
+    },
+    {
+      "id": "shared-question-1783487815634-2",
+      "hint": "",
+      "text": "인권 침해는 사람들이 가진 편견으로 인해 발생할 수 있다.",
+      "type": "single",
+      "order": 3,
+      "points": 10,
+      "quizId": "shared-quiz",
+      "options": [
+        "O",
+        "X"
+      ],
+      "shortAnswers": [],
+      "correctAnswers": [
+        0
+      ]
+    },
+    {
+      "id": "shared-question-1783487815634-3",
+      "hint": "",
+      "text": "다음 중 인권 침해라고 보기 어려운 것은?",
+      "type": "single",
+      "order": 4,
+      "points": 10,
+      "quizId": "shared-quiz",
+      "options": [
+        "친구 얼굴이 나온 사진을 허락 없이 인터넷에 올렸다.",
+        "점자 안내가 부족해 원하는 음료를 고르기 어려웠다.",
+        "학교에 다니기 싫은 학생도 초등학교에 다니도록 하였다.",
+        "유아차를 끌고 이동할 수 있는 길이 없어 불편했다."
+      ],
+      "shortAnswers": [],
+      "correctAnswers": [
+        2
+      ]
+    },
+    {
+      "id": "shared-question-1783487815634-4",
+      "hint": "",
+      "text": "잘 변하지 않는 확고한 의식이나 생각을 OO OO이라고 한다.",
+      "type": "short",
+      "order": 5,
+      "points": 10,
+      "quizId": "shared-quiz",
+      "options": [],
+      "shortAnswers": [
+        "고정관념",
+        "고정 관념"
+      ],
+      "correctAnswers": []
+    },
+    {
+      "id": "shared-question-1783487815634-5",
+      "hint": "",
+      "text": "다른 사람의 얼굴이 나온 사진을 허락 없이 SNS에 올리는 것은 인권 침해가 될 수 있다.",
+      "type": "single",
+      "order": 6,
+      "points": 10,
+      "quizId": "shared-quiz",
+      "options": [
+        "O",
+        "X"
+      ],
+      "shortAnswers": [],
+      "correctAnswers": [
+        0
+      ]
+    },
+    {
+      "id": "shared-question-1783487815634-6",
+      "hint": "",
+      "text": "점자 표기가 제대로 되어 있지 않아 시각 장애인이 원하는 음료를 고르지 못하는 것은 인권 침해와 관련이 없다.",
+      "type": "single",
+      "order": 7,
+      "points": 10,
+      "quizId": "shared-quiz",
+      "options": [
+        "O",
+        "X"
+      ],
+      "shortAnswers": [],
+      "correctAnswers": [
+        1
+      ]
+    },
+    {
+      "id": "shared-question-1783487815634-7",
+      "hint": "",
+      "text": "인권 침해 문제를 해결하는 일은 국가만 노력하면 될 일이다.",
+      "type": "single",
+      "order": 8,
+      "points": 10,
+      "quizId": "shared-quiz",
+      "options": [
+        "O",
+        "X"
+      ],
+      "shortAnswers": [],
+      "correctAnswers": [
+        1
+      ]
+    },
+    {
+      "id": "shared-question-1783487815634-8",
+      "hint": "",
+      "text": "다음 중 인권 침해 사례를 모두 고르세요.",
+      "type": "multiple",
+      "order": 9,
+      "points": 10,
+      "quizId": "shared-quiz",
+      "options": [
+        "점자가 정확하지 않아 원하는 음료를 고르기 어렵다.",
+        "허락 없이 다른 사람의 사진을 SNS에 올렸다.",
+        "인권 교육을 실시했다. ",
+        "유아차를 끌고 이동할 수 있는 길이 없다."
+      ],
+      "shortAnswers": [],
+      "correctAnswers": [
+        1,
+        0,
+        3
+      ]
+    },
+    {
+      "id": "shared-question-1783487815634-9",
+      "hint": "",
+      "text": "다음 중 인권 침해 사례를 모두 고르세요.",
+      "type": "multiple",
+      "order": 10,
+      "points": 10,
+      "quizId": "shared-quiz",
+      "options": [
+        "도서관에서 모든 사람이 조용히 하도록 안내하였다.",
+        "외국인이라는 이유만으로 놀이 대회 참가를 거부하였다.",
+        "친구의 비밀을 허락 없이 다른 사람들에게 말했다.",
+        "친구의 장애를 놀리며 별명을 붙였다."
+      ],
+      "shortAnswers": [],
+      "correctAnswers": [
+        1,
+        2,
+        3
+      ]
+    }
+  ]
+}
