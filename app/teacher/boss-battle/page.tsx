@@ -837,7 +837,7 @@ export default function TeacherBossBattlePage() {
               />
             </div>
             <div>
-              <Label>제한시간</Label>
+              <Label>문제 당 제한시간</Label>
               <Input
                 type="number"
                 value={seconds}
