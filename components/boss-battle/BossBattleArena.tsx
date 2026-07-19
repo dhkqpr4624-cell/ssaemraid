@@ -67,7 +67,35 @@ export function BossBattleArena({
     [debug, setDebug] = useState(false),
     [showRanking, setShowRanking] = useState(false),
     [muted, setMuted] = useState(false),
-    [audioUnlocked, setAudioUnlocked] = useState(false);
+    [audioUnlocked, setAudioUnlocked] = useState(false),
+    [tabletStageScale, setTabletStageScale] = useState<number | null>(null);
+  useEffect(() => {
+    if (isTeacher) {
+      setTabletStageScale(null);
+      return;
+    }
+    const updateStageScale = () => {
+      const coarse = window.matchMedia("(pointer: coarse)").matches;
+      const landscape = window.matchMedia("(orientation: landscape)").matches;
+      const width = window.visualViewport?.width ?? window.innerWidth;
+      const height = window.visualViewport?.height ?? window.innerHeight;
+      const tablet = coarse && landscape && width <= 1600;
+      if (!tablet) {
+        setTabletStageScale(null);
+        return;
+      }
+      // PC 학생 전투 화면의 1500x864 디자인 좌표계를 통째로 등비 축소합니다.
+      setTabletStageScale(Math.min(width / 1500, height / 864));
+    };
+    updateStageScale();
+    window.addEventListener("resize", updateStageScale);
+    window.visualViewport?.addEventListener("resize", updateStageScale);
+    return () => {
+      window.removeEventListener("resize", updateStageScale);
+      window.visualViewport?.removeEventListener("resize", updateStageScale);
+    };
+  }, [isTeacher]);
+
   const hitAudio = useRef<HTMLAudioElement | null>(null),
     roarAudio = useRef<HTMLAudioElement | null>(null),
     lightningAudio = useRef<HTMLAudioElement | null>(null);
@@ -280,6 +308,18 @@ export function BossBattleArena({
         className="absolute inset-0 bg-cover bg-center"
         style={{ backgroundImage: "url('/boss-battle/battle-background.png')" }}
       />
+      <div
+        className={`boss-stage ${tabletStageScale !== null ? "boss-stage-tablet" : ""}`}
+        style={
+          tabletStageScale !== null
+            ? {
+                width: 1500,
+                height: 864,
+                transform: `translate(-50%, -50%) scale(${tabletStageScale})`,
+              }
+            : undefined
+        }
+      >
       <header className="relative z-30 flex h-12 items-center justify-between bg-slate-950/90 px-5">
         <div className="font-bold">5학년 1학기 3단원 마무리 문제</div>
         <div className="text-sm">
@@ -896,6 +936,7 @@ export function BossBattleArena({
           )}
         </div>
       )}
+      </div>
       {session.paused && (
         <div className="pointer-events-none absolute inset-0 z-[450] grid place-items-center bg-black/35">
           <div className="rounded-2xl border-4 border-white bg-black/80 px-12 py-8 text-6xl font-black tracking-[.18em] text-white shadow-2xl">일시정지</div>
@@ -903,117 +944,73 @@ export function BossBattleArena({
       )}
       <style jsx global>{`
         .boss-paused * { animation-play-state: paused !important; transition-duration: 0s !important; }
-        /* revision5 기본 레이아웃은 교사/일반 PC에서 그대로 유지합니다. */
-        @media (max-width: 1366px), (max-height: 850px) {
-          .boss-arena header { height: 42px !important; padding-left: 10px !important; padding-right: 10px !important; }
-          .boss-arena > section { height: calc(100dvh - 42px) !important; }
-          .boss-arena > section > div:first-child { flex: 52 1 0% !important; }
-          .boss-arena > section > div:nth-child(2) { flex: 48 1 0% !important; padding-top: 0 !important; }
-          .boss-arena > section > div:nth-child(2) > div.relative { transform: scale(.76) !important; transform-origin: top center !important; }
-        }
-        @media (max-height: 720px) {
-          .boss-arena > section > div:first-child { flex: 45 1 0% !important; }
-          .boss-arena > section > div:nth-child(2) { flex: 55 1 0% !important; }
-          .boss-arena > section > div:nth-child(2) > div.relative { transform: scale(.66) !important; }
+        /* PC와 교사 화면은 기존 revision5 레이아웃을 그대로 유지합니다. */
+        .boss-stage {
+          position: relative;
+          z-index: 10;
+          width: 100%;
+          height: 100%;
         }
 
-        /* 학생 가로형 태블릿: PC 전투 화면을 하나의 비율 체계로 축소합니다. */
-        @media (orientation: landscape) and (max-width: 1400px) and (pointer: coarse) {
-          .boss-arena-student {
-            --tablet-boss-scale: .68;
-            --tablet-avatar-scale: .96;
-            --tablet-content-scale: .96;
-          }
-          .boss-arena-student > section {
-            height: calc(100dvh - 42px) !important;
-          }
-          .boss-arena-student > section > div:first-child {
-            flex: 60 1 0% !important;
-            overflow: hidden !important;
-          }
-          .boss-arena-student .boss-dialogue-zone {
-            flex: 40 1 0% !important;
-            padding: 0 8px 4px !important;
-          }
-
-          /* HP 바 아래와 dialogue 위 사이에 보스를 완전히 넣고 정확히 중앙 정렬합니다. */
-          .boss-arena-student .boss-sprite-wrap {
-            left: 50% !important;
-            right: auto !important;
-            top: auto !important;
-            bottom: 0 !important;
-            transform: translateX(-50%) scale(var(--tablet-boss-scale)) !important;
-            transform-origin: bottom center !important;
-          }
-
-          .boss-arena-student .student-avatar-wrap {
-            left: clamp(9%, 10.5vw, 13%) !important;
-            bottom: 4px !important;
-            transform: scale(var(--tablet-avatar-scale)) !important;
-            transform-origin: bottom left !important;
-            overflow: visible !important;
-          }
-          .boss-arena-student .student-avatar-wrap > div:last-child {
-            bottom: -2px !important;
-            z-index: 60 !important;
-            opacity: 1 !important;
-            visibility: visible !important;
-          }
-
-          /* dialogue frame/interior/content가 같은 상대 폭과 비율을 유지합니다. */
-          .boss-arena-student .boss-dialogue-zone > div.pointer-events-none {
-            left: 12.5% !important;
-            right: 12.5% !important;
-            top: 1.5% !important;
-            bottom: 1.5% !important;
-          }
-          .boss-arena-student .boss-dialogue-zone > img {
-            left: 11% !important;
-            right: 11% !important;
-            width: 78% !important;
-            height: 100% !important;
-            object-fit: fill !important;
-          }
-          .boss-arena-student .boss-dialogue-content {
-            width: 72% !important;
-            max-width: none !important;
-            transform: scale(var(--tablet-content-scale)) !important;
-            transform-origin: top center !important;
-          }
-          .boss-arena-student .boss-dialogue-content > div:first-child {
-            margin-bottom: 4px !important;
-          }
-          .boss-arena-student .boss-dialogue-content .text-2xl {
-            font-size: clamp(1.25rem, 2.15vw, 1.65rem) !important;
-          }
-          .boss-arena-student .boss-dialogue-content .text-lg {
-            font-size: clamp(.95rem, 1.55vw, 1.2rem) !important;
-          }
-          .boss-arena-student .boss-dialogue-content button,
-          .boss-arena-student .boss-dialogue-content input {
-            font-size: clamp(.84rem, 1.25vw, 1rem) !important;
-          }
-          .boss-arena-student .boss-dialogue-content button {
-            min-height: 38px;
-          }
+        /* 학생 가로형 태블릿은 개별 요소를 다시 배치하지 않습니다.
+           PC 학생 화면 전체(1500x864)를 단일 캔버스로 보고 등비 확대/축소합니다. */
+        .boss-stage-tablet {
+          position: absolute !important;
+          left: 50% !important;
+          top: 50% !important;
+          z-index: 10 !important;
+          transform-origin: center center !important;
+          overflow: visible !important;
         }
-
-        @media (orientation: landscape) and (max-width: 1400px) and (pointer: coarse) and (min-height: 821px) {
-          .boss-arena-student {
-            --tablet-boss-scale: .74;
-            --tablet-avatar-scale: 1.03;
-            --tablet-content-scale: 1;
-          }
+        .boss-stage-tablet > header {
+          height: 48px !important;
+          padding-left: 20px !important;
+          padding-right: 20px !important;
         }
-
-        @media (orientation: landscape) and (max-width: 1400px) and (pointer: coarse) and (max-height: 720px) {
-          .boss-arena-student {
-            --tablet-boss-scale: .58;
-            --tablet-avatar-scale: .84;
-            --tablet-content-scale: .88;
-          }
-          .boss-arena-student > section > div:first-child { flex: 60 1 0% !important; }
-          .boss-arena-student .boss-dialogue-zone { flex: 40 1 0% !important; }
+        .boss-stage-tablet > section {
+          width: 1500px !important;
+          max-width: 1500px !important;
+          height: 816px !important;
+        }
+        .boss-stage-tablet > section > div:first-child {
+          flex: 58 1 0% !important;
+        }
+        .boss-stage-tablet .boss-dialogue-zone {
+          flex: 42 1 0% !important;
+          padding: 4px 12px 8px !important;
+        }
+        .boss-stage-tablet .boss-dialogue-zone > div.pointer-events-none {
+          left: 18% !important;
+          right: 18% !important;
+          top: 4px !important;
+          bottom: 4px !important;
+        }
+        .boss-stage-tablet .boss-dialogue-zone > img {
+          left: 16% !important;
+          right: 16% !important;
+          width: 68% !important;
+          height: 100% !important;
+          object-fit: fill !important;
+        }
+        .boss-stage-tablet .boss-dialogue-content {
+          width: auto !important;
+          max-width: 760px !important;
+          transform: scale(.86) !important;
+          transform-origin: top center !important;
+        }
+        .boss-stage-tablet .boss-sprite-wrap {
+          left: 50% !important;
+          right: auto !important;
+          top: auto !important;
+          bottom: -65px !important;
+          transform: translateX(-50%) !important;
+          transform-origin: bottom center !important;
+        }
+        .boss-stage-tablet .student-avatar-wrap {
+          left: 4% !important;
+          bottom: 8px !important;
+          transform: none !important;
+          transform-origin: bottom left !important;
         }
       `}</style>
       {debug && (
