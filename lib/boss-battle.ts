@@ -105,6 +105,7 @@ export interface BossBattleSession {
   victoryRewardItemId?: string;
   escapeRewardItemId?: string;
   rewardGranted?: boolean;
+  avatarCustomizationEnabled?: boolean;
   bossEndured?: boolean;
   bossNotice?: string;
   bossNoticeUntil?: string;
@@ -364,6 +365,34 @@ export async function saveBossBattleSession(
     localStorage.setItem(key(code), JSON.stringify(merged));
   return merged;
 }
+export function subscribeBossBattleRoom(
+  classCode: string,
+  sessionId: string | undefined,
+  onChange: () => void,
+) {
+  if (!enabled || typeof window === "undefined") return () => {};
+  const code = classCode.trim().toUpperCase();
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const notify = () => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(onChange, 80);
+  };
+  const channel = supabase
+    .channel(`ssaemraid:${code}:${sessionId || "room"}:${Math.random()}`)
+    .on("postgres_changes", { event: "*", schema: "public", table: "boss_battle_sessions", filter: `class_code=eq.${code}` }, notify)
+    .on("postgres_changes", { event: "*", schema: "public", table: "raid_guests", filter: `room_code=eq.${code}` }, notify);
+  if (sessionId) {
+    channel
+      .on("postgres_changes", { event: "*", schema: "public", table: "boss_battle_participants", filter: `session_id=eq.${sessionId}` }, notify)
+      .on("postgres_changes", { event: "*", schema: "public", table: "boss_battle_answers", filter: `session_id=eq.${sessionId}` }, notify);
+  }
+  channel.subscribe();
+  return () => {
+    if (timer) clearTimeout(timer);
+    void supabase.removeChannel(channel);
+  };
+}
+
 export async function endBossBattleSession(
   classCode: string,
   session: BossBattleSession,
@@ -385,24 +414,15 @@ export async function heartbeatBossParticipant(
   const code = classCode.trim().toUpperCase(),
     now = new Date().toISOString();
   if (enabled) {
-    const existing = await supabase
-      .from("boss_battle_participants")
-      .select("participant_data")
-      .eq("session_id", sessionId)
-      .eq("student_id", studentId)
-      .maybeSingle();
-    const state = existing.data?.participant_data || defaultParticipantState();
-    const { error } = await supabase.from("boss_battle_participants").upsert(
-      {
-        session_id: sessionId,
-        class_code: code,
-        student_id: studentId,
-        attendance_number: String(attendanceNumber),
-        last_seen_at: now,
-        participant_data: state,
-      },
-      { onConflict: "session_id,student_id" },
-    );
+    // 한 번의 RPC로 참가자 생성/heartbeat를 처리합니다. 기존 상태를 덮어쓰지 않아
+    // 40명이 동시에 heartbeat를 보내도 SELECT+UPSERT 경쟁이 발생하지 않습니다.
+    const { error } = await supabase.rpc("ssaemraid_heartbeat_participant", {
+      p_session_id: sessionId,
+      p_class_code: code,
+      p_student_id: studentId,
+      p_attendance_number: String(attendanceNumber),
+      p_default_state: defaultParticipantState(),
+    });
     if (!error) return true;
     console.warn("[Boss Battle] heartbeat fallback:", error.message);
   }
@@ -500,18 +520,19 @@ export async function updateBossParticipantState(
   studentId: string,
   state: Partial<BossParticipantState>,
 ) {
+  if (enabled) {
+    const { error } = await supabase.rpc("ssaemraid_patch_participant_state", {
+      p_session_id: sessionId,
+      p_student_id: studentId,
+      p_patch: state,
+    });
+    if (!error) return;
+    console.warn("[Boss Battle] participant patch fallback:", error.message);
+  }
   const all = await getBossParticipants(classCode, sessionId, false),
     p = all.find((x) => x.studentId === studentId);
   if (!p) return;
   const next = { ...p.state, ...state };
-  if (enabled) {
-    const { error } = await supabase
-      .from("boss_battle_participants")
-      .update({ participant_data: next })
-      .eq("session_id", sessionId)
-      .eq("student_id", studentId);
-    if (!error) return;
-  }
   if (typeof window !== "undefined") {
     const k = participantKey(classCode, sessionId),
       c = JSON.parse(localStorage.getItem(k) || "{}");
