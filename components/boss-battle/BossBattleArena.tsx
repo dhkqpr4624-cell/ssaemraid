@@ -999,7 +999,9 @@ export function BossBattleArena({
           transform-origin: top center !important;
         }
         .boss-stage-tablet .boss-sprite-wrap {
-          left: 50% !important;
+          /* 태블릿에서는 1500px 고정 디자인 캔버스의 정확한 중앙(750px)을 기준점으로 사용합니다.
+             중첩된 flex 레이아웃에서 percentage left가 다른 폭을 참조하는 브라우저 차이를 제거합니다. */
+          left: 750px !important;
           right: auto !important;
           top: auto !important;
           bottom: -65px !important;
