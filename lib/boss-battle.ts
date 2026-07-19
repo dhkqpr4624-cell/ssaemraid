@@ -66,6 +66,10 @@ export function isNewerBossSession(
   next: BossBattleSession,
 ) {
   if (!previous || previous.id !== next.id) return true;
+  // A teacher can end/reset a battle from any phase. A reset intentionally moves
+  // the round back to 0 and the status back to waiting, so it must bypass the
+  // normal forward-only status/round ordering check on student clients.
+  if (next.status === "waiting" && previous.status !== "waiting") return true;
   if (next.currentRound > previous.currentRound) return true;
   if (next.currentRound < previous.currentRound) return false;
   const prevTime = new Date(previous.updatedAt || 0).getTime();
