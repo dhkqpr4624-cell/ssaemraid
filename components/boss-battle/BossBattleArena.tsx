@@ -235,8 +235,14 @@ export function BossBattleArena({
         nickname: entry.nickname,
         attendanceNumber: entry.attendanceNumber,
         avatarState: entry.avatarState,
+        items: entry.items || teacherStudents.find((student) => student.id === entry.studentId)?.items || [],
+        classId: session.classCode,
+        score: 0,
+        coins: 0,
+        avatarId: "raid-result",
+        roomDecorations: [],
       })) as Student[],
-    [session.resultSnapshot],
+    [session.resultSnapshot, teacherStudents, session.classCode],
   );
   const ranking = useMemo(
     () =>
@@ -875,20 +881,26 @@ export function BossBattleArena({
                       <div className="font-black text-amber-200">
                         {rankIndex + 1}위
                       </div>
-                      <div className="mx-auto h-24 w-24 scale-[.48] origin-top-left">
-                        <AvatarRenderer
-                          avatarState={
-                            st.avatarState || {
-                              skinColor: "#FFE0BD",
-                              equipped: {},
-                            }
-                          }
-                          inventory={st.items}
-                          size="sprite"
-                          facing="front"
-                          useSprite
-                          showDebugOverlay={false}
-                        />
+                      <div className="relative mx-auto h-24 w-24 overflow-hidden">
+                        <div
+                          className="absolute left-1/2 top-1/2 h-[200px] w-[200px] origin-center"
+                          style={{ transform: "translate(-50%, -50%) scale(0.48)" }}
+                        >
+                          <AvatarRenderer
+                            avatarState={{
+                              ...(st.avatarState || {
+                                skinColor: "#FFE0BD",
+                                equipped: {},
+                              }),
+                              animationState: "idle",
+                            }}
+                            inventory={st.items || []}
+                            size="sprite"
+                            facing="front"
+                            useSprite
+                            showDebugOverlay={false}
+                          />
+                        </div>
                       </div>
                       <div className="truncate text-xs">{st.nickname}</div>
                       <div className="font-bold text-yellow-300">
