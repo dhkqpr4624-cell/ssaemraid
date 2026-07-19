@@ -132,7 +132,7 @@ export default function StudentBossBattlePage() {
     router.push("/");
   }
   async function answer(a: any) {
-    if (!session || !me) return;
+    if (!session || !me || session.paused) return;
     const q =
       session.selectedQuestions.find(
         (x) => x.id === session.roundPlan[session.currentRound]?.questionId,
@@ -149,7 +149,7 @@ export default function StudentBossBattlePage() {
     setSubmitted(true);
   }
   async function rps(c: RpsChoice) {
-    if (!session || !me) return;
+    if (!session || !me || session.paused) return;
     await submitBossRps(code, session.id, session.currentRound, me.id, c);
     setCurrentAnswer((v) => (v ? { ...v, rpsChoice: c } : v));
   }

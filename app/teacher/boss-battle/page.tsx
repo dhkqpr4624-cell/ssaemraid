@@ -12,7 +12,7 @@ import type { Quiz, QuizQuestion, Student } from "@/lib/types";
 import { BossWaitingParticipant } from "@/components/boss-battle/BossWaitingParticipant";
 import { BossWaitingRoomBgm } from "@/components/boss-battle/BossWaitingRoomBgm";
 import { BossBattleArena } from "@/components/boss-battle/BossBattleArena";
-import { ArrowLeft, Play, RefreshCw, StopCircle, Users, QrCode, X } from "lucide-react";
+import { ArrowLeft, Play, RefreshCw, StopCircle, Users, QrCode, X, Pause, PlayCircle } from "lucide-react";
 import { getBossById } from "@/lib/boss-catalog";
 import { REWARD_FOLDER_ITEMS } from "@/lib/reward-folder-items";
 import {
@@ -443,7 +443,7 @@ export default function TeacherBossBattlePage() {
     }
   }
   useEffect(() => {
-    if (!session || session.status === "waiting") return;
+    if (!session || session.status === "waiting" || session.paused) return;
     let cancelled = false;
     const run = async () => {
       if (cancelled || phaseTimerBusy.current) return;
@@ -740,8 +740,25 @@ export default function TeacherBossBattlePage() {
     session?.status,
     session?.phaseEndsAt,
     session?.currentRound,
+    session?.paused,
     participants.length,
   ]);
+  async function togglePause() {
+    if (!session || session.status === "waiting") return;
+    const now = Date.now();
+    if (!session.paused) {
+      const remaining = Math.max(0, session.phaseEndsAt ? new Date(session.phaseEndsAt).getTime() - now : 0);
+      setSession(await saveBossBattleSession(code, { ...session, paused: true, pausedRemainingMs: remaining }));
+    } else {
+      const remaining = Math.max(0, session.pausedRemainingMs || 0);
+      setSession(await saveBossBattleSession(code, {
+        ...session, paused: false, pausedRemainingMs: 0,
+        phaseStartedAt: new Date().toISOString(),
+        phaseEndsAt: session.phaseEndsAt ? new Date(now + remaining).toISOString() : undefined,
+      }));
+    }
+  }
+
   async function debugEvent(e: string) {
     if (!session) return;
     if (e === "boss-death")
@@ -799,7 +816,10 @@ export default function TeacherBossBattlePage() {
           onDebug={debugEvent}
           onEntranceEnded={finishEntrance}
           onFinish={finish}
+          onPause={togglePause}
+          onShowQr={() => setQrOpen(true)}
         />
+        {qrOpen && <div className="fixed inset-0 z-[500] grid place-items-center bg-black/75 p-4"><div className="relative rounded-2xl bg-white p-7 text-center text-slate-950"><button className="absolute right-3 top-3" onClick={()=>setQrOpen(false)}><X/></button><h2 className="mb-3 text-2xl font-black">학생 입장 QR 코드</h2><img className="mx-auto h-80 w-80 max-h-[60dvh] max-w-[60dvh]" alt="방 입장 QR 코드" src={`https://api.qrserver.com/v1/create-qr-code/?size=640x640&data=${encodeURIComponent(`${window.location.origin}/student?code=${code}`)}`}/><div className="mt-3 font-mono text-3xl font-black">{code}</div><p className="mt-2 text-sm text-slate-600">QR 스캔 후 닉네임 설정 화면으로 바로 이동합니다.</p></div></div>}
       </>
     );
   return (
@@ -916,7 +936,7 @@ export default function TeacherBossBattlePage() {
           </div>
         </section>
       </div>
-      {qrOpen && <div className="fixed inset-0 z-[300] grid place-items-center bg-black/75 p-4"><div className="relative rounded-2xl bg-white p-7 text-center text-slate-950"><button className="absolute right-3 top-3" onClick={()=>setQrOpen(false)}><X/></button><h2 className="mb-3 text-2xl font-black">학생 입장 QR 코드</h2><img className="mx-auto h-80 w-80" alt="방 입장 QR 코드" src={`https://api.qrserver.com/v1/create-qr-code/?size=640x640&data=${encodeURIComponent(`${window.location.origin}/student?code=${code}`)}`}/><div className="mt-3 font-mono text-3xl font-black">{code}</div><p className="mt-2 text-sm text-slate-600">QR 스캔 후 방 코드가 자동 입력됩니다.</p></div></div>}
+      {qrOpen && <div className="fixed inset-0 z-[300] grid place-items-center bg-black/75 p-4"><div className="relative rounded-2xl bg-white p-7 text-center text-slate-950"><button className="absolute right-3 top-3" onClick={()=>setQrOpen(false)}><X/></button><h2 className="mb-3 text-2xl font-black">학생 입장 QR 코드</h2><img className="mx-auto h-80 w-80" alt="방 입장 QR 코드" src={`https://api.qrserver.com/v1/create-qr-code/?size=640x640&data=${encodeURIComponent(`${window.location.origin}/student?code=${code}`)}`}/><div className="mt-3 font-mono text-3xl font-black">{code}</div><p className="mt-2 text-sm text-slate-600">QR 스캔 후 닉네임 설정 화면으로 바로 이동합니다.</p></div></div>}
     </main>
   );
 }

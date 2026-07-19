@@ -15,7 +15,7 @@ import { BossSprite } from "./BossSprite";
 import { SpriteEffect } from "./SpriteEffect";
 import { BossQuestionPanel } from "./BossQuestionPanel";
 import { BossBattleBgm } from "./BossBattleBgm";
-import { Bug, Shield, Skull, Sword } from "lucide-react";
+import { Bug, Shield, Skull, Sword, Pause, PlayCircle, QrCode } from "lucide-react";
 import { applyBossMute, BOSS_MUTE_EVENT, getBossMuted } from "@/lib/boss-audio";
 const attackAsset = (a?: BossAttackKind) =>
   a === "claw2"
@@ -41,6 +41,8 @@ export function BossBattleArena({
   teacherParticipants = [],
   onExit,
   onFinish,
+  onPause,
+  onShowQr,
 }: {
   session: BossBattleSession;
   me?: Student | null;
@@ -56,6 +58,8 @@ export function BossBattleArena({
   teacherParticipants?: BossBattleParticipant[];
   onExit?: () => void;
   onFinish?: () => void;
+  onPause?: () => void;
+  onShowQr?: () => void;
 }) {
   const q = currentBossQuestion(session),
     plan = session.roundPlan?.[session.currentRound];
@@ -68,9 +72,9 @@ export function BossBattleArena({
     roarAudio = useRef<HTMLAudioElement | null>(null),
     lightningAudio = useRef<HTMLAudioElement | null>(null);
   useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 100);
+    const t = setInterval(() => { if (!session.paused) setNow(Date.now()); }, 100);
     return () => clearInterval(t);
-  }, []);
+  }, [session.paused]);
   useEffect(() => {
     const syncMute = () => {
       const value = getBossMuted();
@@ -259,13 +263,8 @@ export function BossBattleArena({
   );
   return (
     <main
-      className={`relative h-[100dvh] overflow-hidden bg-slate-950 text-white ${dead ? "grayscale" : ""}`}
+      className={`boss-arena relative h-[100dvh] overflow-hidden bg-slate-950 text-white ${dead || session.paused ? "grayscale" : ""} ${session.paused ? "boss-paused" : ""}`}
     >
-      {!isTeacher && !audioUnlocked && (
-        <Button onClick={() => void unlockAudio()} className="absolute right-3 top-14 z-[140] bg-amber-500 text-slate-950 hover:bg-amber-400">
-          효과음 켜기
-        </Button>
-      )}
       {session.status === "entrance" && (
         <video
           src="/boss-battle/entrance.mp4"
@@ -286,7 +285,11 @@ export function BossBattleArena({
         <div className="text-sm">
           {session.currentRound + 1} / {session.questionCount}
         </div>
-        <BossBattleBgm />
+        <div className="flex items-center gap-2">
+          {isTeacher && <Button size="sm" onClick={onPause} className="bg-amber-500 text-black hover:bg-amber-400">{session.paused ? <PlayCircle className="mr-1 h-4 w-4"/> : <Pause className="mr-1 h-4 w-4"/>}{session.paused ? "재생" : "일시정지"}</Button>}
+          {isTeacher && <Button size="sm" onClick={onShowQr} className="bg-white text-black hover:bg-slate-200"><QrCode className="mr-1 h-4 w-4"/>QR 코드</Button>}
+          <BossBattleBgm />
+        </div>
       </header>
       <section className="relative z-10 mx-auto flex h-[calc(100dvh-48px)] max-w-[1500px] flex-col">
         <div className="relative min-h-0 flex-[58] overflow-hidden">
@@ -625,7 +628,7 @@ export function BossBattleArena({
                       <BossQuestionPanel
                         key={`student-${session.id}-${session.currentRound}-${q.id}`}
                         question={q}
-                        disabled={submitted || dead}
+                        disabled={submitted || dead || session.paused}
                         reveal={session.status === "answer_reveal"}
                         submittedAnswer={currentAnswer?.answer}
                         isCorrect={currentAnswer?.isCorrect}
@@ -650,8 +653,9 @@ export function BossBattleArena({
                         {choices.map((c) => (
                           <button
                             key={c}
+                            disabled={session.paused || !!selectedRps}
                             onClick={() => onRps?.(c)}
-                            className={`rounded-2xl p-3 transition ${selectedRps === c ? "bg-white/30 ring-4 ring-white" : "bg-black/60 brightness-50 hover:brightness-100"}`}
+                            className={`rounded-2xl p-3 transition disabled:cursor-not-allowed disabled:opacity-50 ${selectedRps === c ? "bg-white/30 ring-4 ring-white" : "bg-black/60 brightness-50 hover:brightness-100"}`}
                           >
                             <img
                               src={`/boss-battle/rps-${c}.png`}
@@ -892,6 +896,26 @@ export function BossBattleArena({
           )}
         </div>
       )}
+      {session.paused && (
+        <div className="pointer-events-none absolute inset-0 z-[450] grid place-items-center bg-black/35">
+          <div className="rounded-2xl border-4 border-white bg-black/80 px-12 py-8 text-6xl font-black tracking-[.18em] text-white shadow-2xl">일시정지</div>
+        </div>
+      )}
+      <style jsx global>{`
+        .boss-paused * { animation-play-state: paused !important; transition-duration: 0s !important; }
+        @media (max-width: 1366px), (max-height: 850px) {
+          .boss-arena header { height: 42px !important; padding-left: 10px !important; padding-right: 10px !important; }
+          .boss-arena > section { height: calc(100dvh - 42px) !important; }
+          .boss-arena > section > div:first-child { flex: 52 1 0% !important; }
+          .boss-arena > section > div:nth-child(2) { flex: 48 1 0% !important; padding-top: 0 !important; }
+          .boss-arena > section > div:nth-child(2) > div.relative { transform: scale(.76) !important; transform-origin: top center !important; }
+        }
+        @media (max-height: 720px) {
+          .boss-arena > section > div:first-child { flex: 45 1 0% !important; }
+          .boss-arena > section > div:nth-child(2) { flex: 55 1 0% !important; }
+          .boss-arena > section > div:nth-child(2) > div.relative { transform: scale(.66) !important; }
+        }
+      `}</style>
       {debug && (
         <div className="fixed bottom-4 right-4 z-[100] w-72 rounded-xl border border-fuchsia-400 bg-black/90 p-3">
           <div className="mb-2 flex items-center gap-2 font-bold">
