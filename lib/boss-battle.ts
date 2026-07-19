@@ -198,6 +198,7 @@ function camel(row: any): BossBattleSession | null {
     escapeRewardItemId:
       d.escapeRewardItemId || "g5-s1-social-u3-face-haetae-tear",
     rewardGranted: !!d.rewardGranted,
+    avatarCustomizationEnabled: d.avatarCustomizationEnabled !== false,
     bossEndured: !!d.bossEndured,
     bossNotice: d.bossNotice,
     bossNoticeUntil: d.bossNoticeUntil,

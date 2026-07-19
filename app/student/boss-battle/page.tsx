@@ -197,7 +197,15 @@ export default function StudentBossBattlePage() {
             {selectedBoss.unit}단원 마무리 문제
           </b>
           <div className="flex items-center gap-3">
-            {session?.avatarCustomizationEnabled !== false && <Button onClick={()=>setAvatarOpen(true)} className="bg-amber-500 text-slate-950 hover:bg-amber-400"><Palette className="mr-2 h-4 w-4"/>아바타 설정</Button>}
+            <Button
+              onClick={() => setAvatarOpen(true)}
+              disabled={session?.avatarCustomizationEnabled === false}
+              title={session?.avatarCustomizationEnabled === false ? "교사가 아바타 꾸미기를 비허용했습니다." : "아바타 꾸미기"}
+              className="bg-amber-500 text-slate-950 hover:bg-amber-400 disabled:cursor-not-allowed disabled:bg-slate-600 disabled:text-slate-300"
+            >
+              <Palette className="mr-2 h-4 w-4"/>
+              아바타 설정
+            </Button>
             <Users />
             {joined.length}/40
             <BossWaitingRoomBgm />

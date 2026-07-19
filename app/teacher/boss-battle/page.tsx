@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { listRaidGuests, raidGuestToStudent } from "@/lib/raid-guests";
 import type { Quiz, QuizQuestion, Student } from "@/lib/types";
 import { BossWaitingParticipant } from "@/components/boss-battle/BossWaitingParticipant";
@@ -845,9 +846,17 @@ export default function TeacherBossBattlePage() {
             </div>
             <div>
               <div>공격 1~2문제 뒤 방어 1문제가 자동 배치됩니다.</div>
-              <button type="button" onClick={toggleAvatarCustomization} className={`mt-2 rounded-full px-4 py-2 text-sm font-bold ${avatarCustomizationEnabled ? "bg-emerald-600 text-white" : "bg-slate-300 text-slate-700"}`}>
-                아바타 꾸미기 {avatarCustomizationEnabled ? "허용" : "비허용"}
-              </button>
+              <div className="mt-3 flex items-center gap-3 rounded-lg border border-slate-300 bg-white/70 px-3 py-2">
+                <Switch
+                  id="avatar-customization-toggle"
+                  checked={avatarCustomizationEnabled}
+                  onCheckedChange={() => void toggleAvatarCustomization()}
+                  aria-label="아바타 꾸미기 허용"
+                />
+                <Label htmlFor="avatar-customization-toggle" className="cursor-pointer font-bold">
+                  아바타 꾸미기 {avatarCustomizationEnabled ? "ON" : "OFF"}
+                </Label>
+              </div>
             </div>
             <div className="flex flex-wrap gap-2">
               <Button onClick={createRoom}>
