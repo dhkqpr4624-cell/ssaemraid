@@ -617,13 +617,20 @@ export async function submitBossRps(
   choice: RpsChoice,
 ) {
   if (enabled) {
-    const { error } = await supabase
-      .from("boss_battle_answers")
-      .update({ rps_choice: choice })
-      .eq("session_id", sessionId)
-      .eq("round_index", roundIndex)
-      .eq("student_id", studentId);
-    if (!error) return true;
+    // 답안 upsert 직후 Realtime/네트워크 경합으로 update가 0행에 적용되는 경우를
+    // 막기 위해 짧게 재시도합니다. 기존 answer_data를 덮지 않는 안전한 update입니다.
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      const { data, error } = await supabase
+        .from("boss_battle_answers")
+        .update({ rps_choice: choice })
+        .eq("session_id", sessionId)
+        .eq("round_index", roundIndex)
+        .eq("student_id", studentId)
+        .select("student_id");
+      if (!error && (data?.length || 0) > 0) return true;
+      if (attempt < 3)
+        await new Promise((resolve) => window.setTimeout(resolve, 120 * (attempt + 1)));
+    }
   }
   if (typeof window !== "undefined") {
     const k = answerKey(classCode, sessionId, roundIndex),
