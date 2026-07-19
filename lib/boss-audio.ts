@@ -1,20 +1,29 @@
 "use client";
 
-export const BOSS_MUTE_KEY = "boss-battle-muted";
+export type BossAudioRole = "teacher" | "student";
+
 export const BOSS_MUTE_EVENT = "boss-battle-mute-change";
 
-export function getBossMuted(): boolean {
-  if (typeof window === "undefined") return false;
-  return window.localStorage.getItem(BOSS_MUTE_KEY) === "1";
+function muteKey(role: BossAudioRole) {
+  return `boss-battle-muted-${role}`;
 }
 
-export function setBossMuted(muted: boolean) {
+export function getBossMuted(role: BossAudioRole = "teacher"): boolean {
+  if (typeof window === "undefined") return role === "student";
+  const saved = window.localStorage.getItem(muteKey(role));
+  if (saved === null) return role === "student";
+  return saved === "1";
+}
+
+export function setBossMuted(role: BossAudioRole, muted: boolean) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(BOSS_MUTE_KEY, muted ? "1" : "0");
-  window.dispatchEvent(new CustomEvent(BOSS_MUTE_EVENT, { detail: muted }));
+  window.localStorage.setItem(muteKey(role), muted ? "1" : "0");
+  window.dispatchEvent(
+    new CustomEvent(BOSS_MUTE_EVENT, { detail: { role, muted } }),
+  );
 }
 
-export function applyBossMute(audio: HTMLAudioElement) {
-  audio.muted = getBossMuted();
+export function applyBossMute(audio: HTMLAudioElement, role: BossAudioRole = "teacher") {
+  audio.muted = getBossMuted(role);
   return audio;
 }

@@ -211,7 +211,7 @@ export default function StudentBossBattlePage() {
             </Button>
             <Users />
             {joined.length}/40
-            <BossWaitingRoomBgm />
+            <BossWaitingRoomBgm role="student" />
           </div>
         </div>
         <section

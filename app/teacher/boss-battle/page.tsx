@@ -885,7 +885,7 @@ export default function TeacherBossBattlePage() {
             {selectedBoss.unit}단원 마무리 문제
           </b>
           <div className="flex gap-2">
-            <BossWaitingRoomBgm />
+            <BossWaitingRoomBgm role="teacher" />
             {session && (
               <Button variant="destructive" onClick={finish}>
                 보스전 끝내기
