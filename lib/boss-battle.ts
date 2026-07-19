@@ -106,6 +106,8 @@ export interface BossBattleSession {
   escapeRewardItemId?: string;
   rewardGranted?: boolean;
   avatarCustomizationEnabled?: boolean;
+  paused?: boolean;
+  pausedRemainingMs?: number;
   bossEndured?: boolean;
   bossNotice?: string;
   bossNoticeUntil?: string;
@@ -199,6 +201,8 @@ function camel(row: any): BossBattleSession | null {
       d.escapeRewardItemId || "g5-s1-social-u3-face-haetae-tear",
     rewardGranted: !!d.rewardGranted,
     avatarCustomizationEnabled: d.avatarCustomizationEnabled !== false,
+    paused: !!d.paused,
+    pausedRemainingMs: Number(d.pausedRemainingMs || 0),
     bossEndured: !!d.bossEndured,
     bossNotice: d.bossNotice,
     bossNoticeUntil: d.bossNoticeUntil,
