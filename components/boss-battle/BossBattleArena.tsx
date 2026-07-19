@@ -62,7 +62,8 @@ export function BossBattleArena({
   const [now, setNow] = useState(Date.now()),
     [debug, setDebug] = useState(false),
     [showRanking, setShowRanking] = useState(false),
-    [muted, setMuted] = useState(false);
+    [muted, setMuted] = useState(false),
+    [audioUnlocked, setAudioUnlocked] = useState(false);
   const hitAudio = useRef<HTMLAudioElement | null>(null),
     roarAudio = useRef<HTMLAudioElement | null>(null),
     lightningAudio = useRef<HTMLAudioElement | null>(null);
@@ -86,6 +87,34 @@ export function BossBattleArena({
       window.removeEventListener("storage", syncMute);
     };
   }, []);
+  const unlockAudio = async () => {
+    try {
+      const AudioContextCtor = window.AudioContext || (window as any).webkitAudioContext;
+      if (AudioContextCtor) {
+        const ctx = new AudioContextCtor();
+        if (ctx.state === "suspended") await ctx.resume();
+        await ctx.close();
+      }
+      const probe = applyBossMute(new Audio("/boss-battle/hit.wav"));
+      probe.volume = 0.001;
+      await probe.play();
+      probe.pause();
+      probe.currentTime = 0;
+      setAudioUnlocked(true);
+    } catch {
+      setAudioUnlocked(false);
+    }
+  };
+  useEffect(() => {
+    if (isTeacher) return;
+    const unlock = () => { void unlockAudio(); };
+    window.addEventListener("pointerdown", unlock, { once: true });
+    window.addEventListener("keydown", unlock, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
+    };
+  }, [isTeacher]);
   useEffect(() => {
     const fn = (e: KeyboardEvent) => {
       if (e.altKey && e.key.toLowerCase() === "a") setDebug((v) => !v);
@@ -230,15 +259,20 @@ export function BossBattleArena({
   );
   return (
     <main
-      className={`relative h-screen overflow-hidden bg-slate-950 text-white ${dead ? "grayscale" : ""}`}
+      className={`relative h-[100dvh] overflow-hidden bg-slate-950 text-white ${dead ? "grayscale" : ""}`}
     >
+      {!isTeacher && !audioUnlocked && (
+        <Button onClick={() => void unlockAudio()} className="absolute right-3 top-14 z-[140] bg-amber-500 text-slate-950 hover:bg-amber-400">
+          효과음 켜기
+        </Button>
+      )}
       {session.status === "entrance" && (
         <video
           src="/boss-battle/entrance.mp4"
           autoPlay
           playsInline
           preload="auto"
-          muted={muted}
+          muted
           onEnded={onEntranceEnded}
           className="absolute inset-0 z-50 h-full w-full bg-black object-contain"
         />
@@ -247,15 +281,15 @@ export function BossBattleArena({
         className="absolute inset-0 bg-cover bg-center"
         style={{ backgroundImage: "url('/boss-battle/battle-background.png')" }}
       />
-      <header className="relative z-30 flex h-16 items-center justify-between bg-slate-950/90 px-5">
+      <header className="relative z-30 flex h-12 items-center justify-between bg-slate-950/90 px-5">
         <div className="font-bold">5학년 1학기 3단원 마무리 문제</div>
         <div className="text-sm">
           {session.currentRound + 1} / {session.questionCount}
         </div>
         <BossBattleBgm />
       </header>
-      <section className="relative z-10 mx-auto flex h-[calc(100vh-64px)] max-w-[1500px] flex-col">
-        <div className="relative h-[61vh] min-h-[430px] overflow-hidden">
+      <section className="relative z-10 mx-auto flex h-[calc(100dvh-48px)] max-w-[1500px] flex-col">
+        <div className="relative min-h-0 flex-[58] overflow-hidden">
           {!isResult && !isCinematic && (
             <div className="absolute left-1/2 top-3 z-20 w-[70%] -translate-x-1/2">
               <div className="mb-1 flex justify-between text-sm font-bold">
@@ -517,7 +551,7 @@ export function BossBattleArena({
             </div>
           )}
         </div>
-        <div className="relative h-[39vh] overflow-hidden px-4 pb-3 pt-2">
+        <div className="relative min-h-0 flex-[42] overflow-hidden px-3 pb-2 pt-1">
           {showTeacherDialogue && !isResult && (
             <>
               <div className="pointer-events-none absolute inset-x-[18%] bottom-1 top-1 rounded-xl bg-black/72" />
@@ -589,7 +623,7 @@ export function BossBattleArena({
                   ) : (
                     <div className="mx-auto max-w-5xl">
                       <BossQuestionPanel
-                        key={`teacher-${session.currentRound}-${q.id}`}
+                        key={`student-${session.id}-${session.currentRound}-${q.id}`}
                         question={q}
                         disabled={submitted || dead}
                         reveal={session.status === "answer_reveal"}
@@ -802,7 +836,7 @@ export function BossBattleArena({
                   순위 보기
                 </Button>
                 <Button onClick={onFinish} className="bg-amber-500 text-black">
-                  보상 받기
+                  대기실로
                 </Button>
               </div>
             </div>

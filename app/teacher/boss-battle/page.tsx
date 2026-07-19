@@ -45,6 +45,7 @@ import {
   clearBossParticipants,
   type BossBattleParticipant,
   type BossBattleSession,
+  subscribeBossBattleRoom,
 } from "@/lib/boss-battle";
 
 export default function TeacherBossBattlePage() {
@@ -62,6 +63,7 @@ export default function TeacherBossBattlePage() {
     [preparedSelected, setPreparedSelected] = useState<Record<string, boolean>>({}),
     [busy, setBusy] = useState(false),
     [qrOpen, setQrOpen] = useState(false),
+    [avatarCustomizationEnabled, setAvatarCustomizationEnabled] = useState(true),
     [victoryRewardItemId, setVictoryRewardItemId] = useState(
       "g5-s1-social-u3-pet-law-judge-haetae",
     ),
@@ -69,7 +71,9 @@ export default function TeacherBossBattlePage() {
       "g5-s1-social-u3-face-haetae-tear",
     );
   const resolving = useRef(false),
-    phaseTimerBusy = useRef(false);
+    phaseTimerBusy = useRef(false),
+    participantCountRef = useRef(0),
+    hpScalingBusy = useRef(false);
   const scaledBossDamage = (attack: any, current: BossBattleSession) => {
     const defenseCount = Math.max(
       1,
@@ -88,6 +92,7 @@ export default function TeacherBossBattlePage() {
       if (ss) {
         setCount(ss.questionCount);
         setSeconds(ss.timeLimitSeconds);
+        setAvatarCustomizationEnabled(ss.avatarCustomizationEnabled !== false);
         setVictoryRewardItemId(
           ss.victoryRewardItemId || "g5-s1-social-u3-pet-law-judge-haetae",
         );
@@ -105,13 +110,32 @@ export default function TeacherBossBattlePage() {
         getBossParticipants(code, session.id, true),
         listRaidGuests(code),
       ]);
-      if (ss) setSession((prev) => (isNewerBossSession(prev, ss) ? ss : prev));
+      if (ss) {
+        let nextSession = ss;
+        const previousCount = participantCountRef.current;
+        participantCountRef.current = ps.length;
+        const combatActive = !["waiting", "ended", "defeated", "escaped", "wiped", "result_ready", "reward_ready"].includes(ss.status);
+        if (combatActive && previousCount > 0 && ps.length > 0 && previousCount !== ps.length && !hpScalingBusy.current) {
+          hpScalingBusy.current = true;
+          try {
+            const attackRounds = Math.max(1, ss.roundPlan.filter(x => x.kind === "attack").length);
+            const newMax = calculateBossMaxHp(ps.length, attackRounds);
+            if (newMax !== ss.bossMaxHp) {
+              const ratio = ss.bossMaxHp > 0 ? ss.bossHp / ss.bossMaxHp : 1;
+              const newHp = ss.bossHp <= 0 ? 0 : Math.max(1, Math.min(newMax, Math.round(newMax * ratio)));
+              nextSession = await saveBossBattleSession(code, { ...ss, bossMaxHp: newMax, bossHp: newHp });
+            }
+          } finally { hpScalingBusy.current = false; }
+        }
+        setSession((prev) => (isNewerBossSession(prev, nextSession) ? nextSession : prev));
+      }
       setParticipants(ps);
       setStudents(guests.map(raidGuestToStudent));
     };
     run();
-    const t = setInterval(run, 700);
-    return () => clearInterval(t);
+    const unsubscribe = subscribeBossBattleRoom(code, session.id, () => { void run(); });
+    const t = setInterval(run, 2500);
+    return () => { unsubscribe(); clearInterval(t); };
   }, [code, session?.id]);
 
   const allQuestions = useMemo(
@@ -137,6 +161,14 @@ export default function TeacherBossBattlePage() {
         x.subject === "social" &&
         x.unit === "5-1-social-3",
     );
+  async function toggleAvatarCustomization() {
+    const next = !avatarCustomizationEnabled;
+    setAvatarCustomizationEnabled(next);
+    if (session) {
+      const saved = await saveBossBattleSession(code, { ...session, avatarCustomizationEnabled: next });
+      setSession(saved);
+    }
+  }
   async function createRoom() {
     setBusy(true);
     try {
@@ -164,6 +196,7 @@ export default function TeacherBossBattlePage() {
         bossHp: hp,
         lightningUnlocked: false,
         defenseRoundsSinceLightning: 0,
+        avatarCustomizationEnabled,
         victoryRewardItemId,
         escapeRewardItemId,
       });
@@ -208,9 +241,20 @@ export default function TeacherBossBattlePage() {
       setSession(reset);
       return;
     }
-    if (!confirm("정말 보스전을 끝내고 처음 화면으로 돌아가겠습니까?")) return;
-    await endBossBattleSession(code, session);
-    router.push("/");
+    if (!confirm("현재 전투를 끝내고 모두 대기실로 돌아갈까요?")) return;
+    const reset = await saveBossBattleSession(code, {
+      ...session,
+      status: "waiting",
+      currentRound: 0,
+      bossHp: session.bossMaxHp,
+      phaseStartedAt: undefined,
+      phaseEndsAt: undefined,
+      rewardGranted: false,
+      bossRpsChoice: undefined,
+      roundDamage: 0,
+    });
+    await resetBossParticipantStates(code, session.id);
+    setSession(reset);
   }
   async function goQuestion(
     nextRound: number,
@@ -799,8 +843,13 @@ export default function TeacherBossBattlePage() {
                 onChange={(e) => setSeconds(+e.target.value)}
               />
             </div>
-            <div>공격 1~2문제 뒤 방어 1문제가 자동 배치됩니다.</div>
-            <div className="flex gap-2">
+            <div>
+              <div>공격 1~2문제 뒤 방어 1문제가 자동 배치됩니다.</div>
+              <button type="button" onClick={toggleAvatarCustomization} className={`mt-2 rounded-full px-4 py-2 text-sm font-bold ${avatarCustomizationEnabled ? "bg-emerald-600 text-white" : "bg-slate-300 text-slate-700"}`}>
+                아바타 꾸미기 {avatarCustomizationEnabled ? "허용" : "비허용"}
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2">
               <Button onClick={createRoom}>
                 <RefreshCw className="mr-2 h-4 w-4" />
                 방 만들기

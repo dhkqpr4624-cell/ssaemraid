@@ -26,10 +26,14 @@ export function BossQuestionPanel({
     setText("");
   }, [question.id]);
   useEffect(() => {
-    if (!submittedAnswer) return;
+    if (!submittedAnswer) {
+      setSel([]);
+      setText("");
+      return;
+    }
     setSel((submittedAnswer.selectedOptions || []).map(Number));
     setText(submittedAnswer.textAnswer || "");
-  }, [submittedAnswer]);
+  }, [question.id, submittedAnswer]);
   const multi = question.type === "multiple",
     correct = new Set((question.correctAnswers || []).map(Number));
   return (

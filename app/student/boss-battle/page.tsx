@@ -21,6 +21,7 @@ import {
   removeBossParticipant,
   submitBossAnswer,
   submitBossRps,
+  subscribeBossBattleRoom,
   updateBossParticipantState,
   type BossBattleAnswer,
   type BossBattleParticipant,
@@ -44,6 +45,7 @@ export default function StudentBossBattlePage() {
     >(),
     [error, setError] = useState("");
   const pollSequence = useRef(0);
+  const pollNowRef = useRef<() => void>(() => {});
   useEffect(() => {
     if (!saved || !code) {
       router.replace("/student");
@@ -58,6 +60,9 @@ export default function StudentBossBattlePage() {
     });
   }, [code]);
   useEffect(() => {
+    if (session?.avatarCustomizationEnabled === false) setAvatarOpen(false);
+  }, [session?.avatarCustomizationEnabled]);
+  useEffect(() => {
     pollSequence.current += 1;
     setSubmitted(false);
     setCurrentAnswer(undefined);
@@ -71,7 +76,7 @@ export default function StudentBossBattlePage() {
       const latest = await getBossBattleSession(code);
       if (requestId !== pollSequence.current) return;
       if (!latest) {
-        setError("보스전이 종료되었습니다.");
+        router.replace(`/student?code=${code}`);
         return;
       }
       if (latest.status === "reward_ready") {
@@ -109,11 +114,15 @@ export default function StudentBossBattlePage() {
       setCurrentAnswer(mineAnswer);
       setSubmitted(Boolean(mineAnswer));
     };
+    pollNowRef.current = () => { void poll(); };
     beat();
     poll();
-    const h = setInterval(beat, 8000),
-      p = setInterval(poll, 700);
+    const unsubscribe = subscribeBossBattleRoom(code, session.id, () => pollNowRef.current());
+    const h = setInterval(beat, 15000),
+      // Realtime이 끊겼을 때를 위한 저빈도 안전망입니다.
+      p = setInterval(poll, 3000);
     return () => {
+      unsubscribe();
       clearInterval(h);
       clearInterval(p);
     };
@@ -188,7 +197,7 @@ export default function StudentBossBattlePage() {
             {selectedBoss.unit}단원 마무리 문제
           </b>
           <div className="flex items-center gap-3">
-            <Button onClick={()=>setAvatarOpen(true)} className="bg-amber-500 text-slate-950 hover:bg-amber-400"><Palette className="mr-2 h-4 w-4"/>아바타 설정</Button>
+            {session?.avatarCustomizationEnabled !== false && <Button onClick={()=>setAvatarOpen(true)} className="bg-amber-500 text-slate-950 hover:bg-amber-400"><Palette className="mr-2 h-4 w-4"/>아바타 설정</Button>}
             <Users />
             {joined.length}/40
             <BossWaitingRoomBgm />
@@ -225,7 +234,7 @@ export default function StudentBossBattlePage() {
           </div>
         </section>
       </div>
-      {avatarOpen && guest && <AvatarModal guest={guest} onClose={()=>setAvatarOpen(false)} onSave={async g=>{await updateRaidGuest(g);saveRaidGuestSession(g);setGuest(g);setMe(raidGuestToStudent(g));setStudents((await listRaidGuests(code)).map(raidGuestToStudent));setAvatarOpen(false)}}/>}
+      {avatarOpen && guest && session?.avatarCustomizationEnabled !== false && <AvatarModal guest={guest} onClose={()=>setAvatarOpen(false)} onSave={async g=>{await updateRaidGuest(g);saveRaidGuestSession(g);setGuest(g);setMe(raidGuestToStudent(g));setStudents((await listRaidGuests(code)).map(raidGuestToStudent));setAvatarOpen(false)}}/>}
     </main>
   );
 }
@@ -235,5 +244,21 @@ function AvatarModal({guest,onClose,onSave}:{guest:RaidGuest;onClose:()=>void;on
  const slots=["hair","eyes","eyebrow","mouth","face","top","bottom","shoes","hat","headAccessory","accessory","cape","pet"] as const;
  const labels:any={hair:"머리",eyes:"눈",eyebrow:"눈썹",mouth:"입",face:"얼굴장식",top:"상의",bottom:"하의",shoes:"신발",hat:"모자",headAccessory:"머리장식",accessory:"장신구",cape:"망토",pet:"펫"};
  const setColor=(k:string,v:string)=>setDraft(d=>({...d,avatarState:{...d.avatarState,[k]:v}}));
- return <div className="fixed inset-0 z-[200] grid place-items-center bg-black/75 p-4"><div className="max-h-[92vh] w-full max-w-5xl overflow-auto rounded-2xl border-2 border-amber-400 bg-slate-900 p-5"><div className="mb-4 flex items-center justify-between"><h2 className="text-2xl font-black">아바타 꾸미기</h2><Button variant="ghost" onClick={onClose}><X/></Button></div><div className="grid gap-6 md:grid-cols-[260px_1fr]"><div className="rounded-xl bg-slate-800 p-4"><div className="mx-auto h-[220px] w-[220px]"><AvatarRenderer avatarState={draft.avatarState} inventory={draft.items} size="sprite" facing="front" showAnimation={false} useSprite={true}/></div><Button className="mt-3 w-full" onClick={()=>{const a=randomRaidAvatar();setDraft(d=>({...d,avatarState:a.state,items:a.items}))}}><Shuffle className="mr-2 h-4 w-4"/>전체 랜덤</Button><div className="mt-4 space-y-3">{[["skinColor","피부색",RAID_AVATAR_COLORS.skin],["hairColor","머리색",RAID_AVATAR_COLORS.hair],["eyeColor","눈색",RAID_AVATAR_COLORS.eye]].map(([k,l,colors]:any)=><div key={k}><b className="text-sm">{l}</b><div className="mt-1 flex flex-wrap gap-2">{colors.map((c:string)=><button key={c} className="h-8 w-8 rounded-full border-2 border-white/50" style={{background:c}} onClick={()=>setColor(k,c)}/>)}</div></div>)}</div></div><div className="space-y-5">{slots.map(slot=>{const items=RAID_AVATAR_ITEMS.filter(i=>i.slot===slot);if(!items.length)return null;return <div key={slot}><h3 className="mb-2 font-bold text-amber-300">{labels[slot]}</h3><div className="flex gap-2 overflow-x-auto pb-2"><button className="h-20 min-w-20 rounded border border-slate-600" onClick={()=>setDraft(d=>({...d,avatarState:{...d.avatarState,equipped:{...d.avatarState.equipped,[slot]:null}}}))}>없음</button>{items.map(i=><button title={i.name} key={i.id} className={`h-20 min-w-20 rounded border p-1 ${draft.avatarState.equipped[slot]===i.id?'border-amber-400 bg-amber-950':'border-slate-600 bg-slate-800'}`} onClick={()=>setDraft(d=>({...d,avatarState:{...d.avatarState,equipped:{...d.avatarState.equipped,[slot]:i.id}}}))}>{i.iconUrl?<img src={i.iconUrl} className="h-full w-full object-contain"/>:<span>{i.icon||"?"}</span>}</button>)}</div></div>})}</div></div><div className="mt-5 flex justify-end gap-3"><Button variant="outline" onClick={onClose}>취소</Button><Button className="bg-amber-500 text-slate-950" onClick={()=>onSave(draft)}>적용</Button></div></div></div>
+ return <div className="fixed inset-0 z-[200] grid place-items-center bg-black/75 p-3">
+  <div className="relative flex h-[min(760px,92dvh)] w-[min(960px,96vw)] flex-col overflow-hidden rounded-2xl border-2 border-amber-400 bg-slate-900 shadow-2xl">
+   <div className="flex shrink-0 items-center justify-between border-b border-slate-700 bg-slate-950 px-5 py-3 pr-36">
+    <h2 className="text-xl font-black">아바타 꾸미기</h2>
+    <Button variant="ghost" onClick={onClose} className="absolute right-3 top-3"><X/></Button>
+    <Button className="absolute right-14 top-3 bg-amber-500 text-slate-950 hover:bg-amber-400" onClick={()=>onSave(draft)}>적용</Button>
+   </div>
+   <div className="grid min-h-0 flex-1 gap-4 p-4 md:grid-cols-[220px_minmax(0,1fr)]">
+    <div className="overflow-y-auto rounded-xl bg-slate-800 p-3">
+     <div className="mx-auto h-[180px] w-[180px]"><AvatarRenderer avatarState={draft.avatarState} inventory={draft.items} size="sprite" facing="front" showAnimation={false} useSprite={true}/></div>
+     <Button className="mt-2 w-full" onClick={()=>{const a=randomRaidAvatar();setDraft(d=>({...d,avatarState:a.state,items:a.items}))}}><Shuffle className="mr-2 h-4 w-4"/>전체 랜덤</Button>
+     <div className="mt-3 space-y-2">{[["skinColor","피부색",RAID_AVATAR_COLORS.skin],["hairColor","머리색",RAID_AVATAR_COLORS.hair],["eyeColor","눈색",RAID_AVATAR_COLORS.eye]].map(([k,l,colors]:any)=><div key={k}><b className="text-xs">{l}</b><div className="mt-1 flex flex-wrap gap-1.5">{colors.map((c:string)=><button key={c} className="h-7 w-7 rounded-full border-2 border-white/50" style={{background:c}} onClick={()=>setColor(k,c)}/>)}</div></div>)}</div>
+    </div>
+    <div className="min-w-0 overflow-y-auto pr-2">{slots.map(slot=>{const items=RAID_AVATAR_ITEMS.filter(i=>i.slot===slot);if(!items.length)return null;return <section key={slot} className="mb-4"><h3 className="mb-2 font-bold text-amber-300">{labels[slot]}</h3><div className="flex max-w-full gap-2 overflow-x-auto pb-2"><button className="h-16 min-w-16 rounded border border-slate-600" onClick={()=>setDraft(d=>({...d,avatarState:{...d.avatarState,equipped:{...d.avatarState.equipped,[slot]:null}}}))}>없음</button>{items.map(i=><button title={i.name} key={i.id} className={`h-16 min-w-16 rounded border p-1 ${draft.avatarState.equipped[slot]===i.id?'border-amber-400 bg-amber-950':'border-slate-600 bg-slate-800'}`} onClick={()=>setDraft(d=>({...d,avatarState:{...d.avatarState,equipped:{...d.avatarState.equipped,[slot]:i.id}}}))}>{i.iconUrl?<img src={i.iconUrl} className="h-full w-full object-contain"/>:<span>{i.icon||"?"}</span>}</button>)}</div></section>})}</div>
+   </div>
+  </div>
+ </div>
 }
