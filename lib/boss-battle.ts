@@ -240,19 +240,38 @@ export function buildRoundPlan(questions: QuizQuestion[]): BossRoundPlan[] {
   if (out.length > 0) out[out.length - 1] = { ...out[out.length - 1], kind: "attack" };
   return out;
 }
+// 15차 밸런스 기준값
+const EXPECTED_ANSWER_RATE = 0.6;
+// 승(2배), 무(1배), 패(0.5배)가 같은 확률일 때의 기대 배율: 7 / 6
+const EXPECTED_RPS_MULTIPLIER = 7 / 6;
+const BOSS_HP_EXPECTED_DAMAGE_FACTOR = 1.08;
+
+function participantHpScale(playerCount: number) {
+  if (playerCount >= 31) return 1.08;
+  if (playerCount >= 21) return 1.05;
+  if (playerCount >= 11) return 1.03;
+  return 1;
+}
+
 export function calculateBossMaxHp(
   playerCount: number,
   attackQuestionCount: number,
 ) {
-  // 평균 정답률과 가위바위보 평균 배율을 실제 플레이에 가깝게 반영하고,
-  // 잘 푸는 학급도 마지막 1~2문제 전까지 보스가 지나치게 빨리 소진되지 않도록 여유 체력을 둡니다.
+  // 문항 평균 정답률 60%와 가위바위보 기대 배율을 기준으로 예상 총 피해를 계산합니다.
+  // 참가자가 많을수록 평균값이 안정되어 전투가 쉬워지는 현상을 완화하기 위해
+  // 11~40명 구간에 3~8%의 완만한 HP 보정을 추가합니다.
+  const normalizedPlayers = Math.max(1, Math.min(MAX_BOSS_PLAYERS, playerCount));
   const expectedDamage =
-    Math.max(1, playerCount) *
+    normalizedPlayers *
     Math.max(1, attackQuestionCount) *
     PLAYER_BASE_ATTACK *
-    0.9 *
-    1.15;
-  return Math.max(120, Math.round((expectedDamage * 1.18) / 10) * 10);
+    EXPECTED_ANSWER_RATE *
+    EXPECTED_RPS_MULTIPLIER;
+  const scaledHp =
+    expectedDamage *
+    BOSS_HP_EXPECTED_DAMAGE_FACTOR *
+    participantHpScale(normalizedPlayers);
+  return Math.max(120, Math.round(scaledHp / 10) * 10);
 }
 export function normalizeText(text: string) {
   return String(text || "")

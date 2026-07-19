@@ -80,7 +80,8 @@ export default function TeacherBossBattlePage() {
       1,
       current.roundPlan.filter((x) => x.kind === "defense").length,
     );
-    const base = Math.min(45, Math.max(14, Math.ceil(130 / defenseCount)));
+    // 기존 총 기대 피해량(130)을 약 8% 낮춰 연속 오답 시 전멸 편차를 완화합니다.
+    const base = Math.min(42, Math.max(13, Math.ceil(120 / defenseCount)));
     const multiplier =
       attack === "lightning" ? 1.45 : attack === "clawCombo" ? 1.2 : 1;
     return Math.min(60, Math.max(10, Math.round(base * multiplier)));
@@ -635,9 +636,9 @@ export default function TeacherBossBattlePage() {
             if (session.bossEndured && pending.length > 0) {
               const perStudent = Math.max(
                 1,
-                Math.round(session.bossMaxHp * 0.002),
+                Math.round(session.bossMaxHp * 0.0017),
               );
-              const healCap = Math.max(1, Math.round(session.bossMaxHp * 0.02));
+              const healCap = Math.max(1, Math.round(session.bossMaxHp * 0.017));
               const healAmount = Math.min(healCap, perStudent * pending.length);
               const healedHp = Math.min(
                 session.bossMaxHp,
@@ -709,11 +710,11 @@ export default function TeacherBossBattlePage() {
             1,
             session.roundPlan.filter((round) => round.kind === "attack").length,
           );
-          // 잘 푸는 학급에서도 보스 체력이 중반에 1까지 내려가지 않도록,
-          // 남은 공격 문제 수에 비례한 최소 체력을 유지합니다. 마지막 문제에서는 제한하지 않습니다.
+          // 보스가 마지막 문제 전 쓰러지는 것은 막되, 마지막 공격 직전에는
+          // 최대 체력의 약 50% 비율까지 내려갈 수 있도록 진행도 하한을 완화합니다.
           const progressionFloor = isLastQuestion
             ? 0
-            : Math.max(1, Math.round(session.bossMaxHp * (remainingAttackRounds / totalAttackRounds) * 0.72));
+            : Math.max(1, Math.round(session.bossMaxHp * (remainingAttackRounds / totalAttackRounds) * 0.5));
           const hp = isLastQuestion ? rawHp : Math.max(rawHp, progressionFloor);
           const enduredNow = !isLastQuestion && rawHp < progressionFloor;
           const updated = await saveBossBattleSession(code, {
