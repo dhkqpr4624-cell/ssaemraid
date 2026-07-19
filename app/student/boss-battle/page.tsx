@@ -128,7 +128,10 @@ export default function StudentBossBattlePage() {
     };
   }, [session?.id, me?.id]);
   async function leave() {
-    if (session && me) await removeBossParticipant(code, session.id, me.id);
+    // 전투가 시작된 뒤에는 결과 기록 보존을 위해 참가자 행을 삭제하지 않습니다.
+    // 새 방 생성 시 교사가 기존 참가자 데이터를 일괄 정리합니다.
+    if (session && me && session.status === "waiting")
+      await removeBossParticipant(code, session.id, me.id);
     router.push("/");
   }
   async function answer(a: any) {

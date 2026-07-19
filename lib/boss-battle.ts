@@ -116,6 +116,7 @@ export interface BossBattleSession {
   bossNotice?: string;
   bossNoticeUntil?: string;
   bossHealAmount?: number;
+  resultSnapshot?: BossResultSnapshotEntry[];
   createdAt: string;
   updatedAt: string;
 }
@@ -138,6 +139,13 @@ export interface BossBattleParticipant {
   studentId: string;
   attendanceNumber: string;
   lastSeenAt: string;
+  state: BossParticipantState;
+}
+export interface BossResultSnapshotEntry {
+  studentId: string;
+  attendanceNumber: string;
+  nickname: string;
+  avatarState?: any;
   state: BossParticipantState;
 }
 export interface BossBattleAnswer {
@@ -211,6 +219,7 @@ function camel(row: any): BossBattleSession | null {
     bossNotice: d.bossNotice,
     bossNoticeUntil: d.bossNoticeUntil,
     bossHealAmount: Number(d.bossHealAmount || 0),
+    resultSnapshot: Array.isArray(d.resultSnapshot) ? d.resultSnapshot : undefined,
     createdAt: row.created_at || d.createdAt,
     updatedAt: row.updated_at || d.updatedAt,
   };
@@ -235,13 +244,15 @@ export function calculateBossMaxHp(
   playerCount: number,
   attackQuestionCount: number,
 ) {
+  // 평균 정답률과 가위바위보 평균 배율을 실제 플레이에 가깝게 반영하고,
+  // 잘 푸는 학급도 마지막 1~2문제 전까지 보스가 지나치게 빨리 소진되지 않도록 여유 체력을 둡니다.
   const expectedDamage =
     Math.max(1, playerCount) *
-    0.9 *
     Math.max(1, attackQuestionCount) *
-    0.8 *
-    PLAYER_BASE_ATTACK;
-  return Math.max(100, Math.round((expectedDamage * 0.92) / 10) * 10);
+    PLAYER_BASE_ATTACK *
+    0.9 *
+    1.15;
+  return Math.max(120, Math.round((expectedDamage * 1.18) / 10) * 10);
 }
 export function normalizeText(text: string) {
   return String(text || "")

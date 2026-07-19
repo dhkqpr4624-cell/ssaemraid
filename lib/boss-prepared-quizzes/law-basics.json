@@ -83,7 +83,7 @@
     {
       "id": "shared-question-1781668713744-5",
       "hint": "",
-      "text": "법과 구별되는 도덕의 특징으로 올바른 것을 모두 고르시오.",
+      "text": "도덕의 특징으로 올바른 것을 모두 고르시오.",
       "type": "multiple",
       "order": 6,
       "points": 10,
@@ -97,8 +97,7 @@
       "shortAnswers": [],
       "correctAnswers": [
         0,
-        2,
-        3
+        2
       ]
     },
     {

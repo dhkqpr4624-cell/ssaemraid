@@ -108,7 +108,11 @@ export default function TeacherBossBattlePage() {
     const run = async () => {
       const [ss, ps, guests] = await Promise.all([
         getBossBattleSession(code),
-        getBossParticipants(code, session.id, true),
+        getBossParticipants(
+          code,
+          session.id,
+          !["defeated", "escaped", "wiped", "result_ready"].includes(session.status),
+        ),
         listRaidGuests(code),
       ]);
       if (ss) {
@@ -138,6 +142,33 @@ export default function TeacherBossBattlePage() {
     const t = setInterval(run, 2500);
     return () => { unsubscribe(); clearInterval(t); };
   }, [code, session?.id]);
+
+  useEffect(() => {
+    if (!session?.id || session.resultSnapshot?.length) return;
+    if (!["defeated", "escaped", "wiped", "result_ready"].includes(session.status)) return;
+    let cancelled = false;
+    (async () => {
+      const [allParticipants, guests] = await Promise.all([
+        getBossParticipants(code, session.id, false),
+        listRaidGuests(code),
+      ]);
+      if (cancelled || !allParticipants.length) return;
+      const snapshot = allParticipants.map((participant) => {
+        const guest = guests.find((g) => g.id === participant.studentId);
+        const student = guest ? raidGuestToStudent(guest) : undefined;
+        return {
+          studentId: participant.studentId,
+          attendanceNumber: participant.attendanceNumber,
+          nickname: student?.nickname || participant.attendanceNumber,
+          avatarState: student?.avatarState,
+          state: { ...participant.state },
+        };
+      });
+      const saved = await saveBossBattleSession(code, { ...session, resultSnapshot: snapshot });
+      if (!cancelled) setSession(saved);
+    })();
+    return () => { cancelled = true; };
+  }, [code, session?.id, session?.status, session?.resultSnapshot?.length]);
 
   const allQuestions = useMemo(
       () =>
@@ -200,6 +231,7 @@ export default function TeacherBossBattlePage() {
         avatarCustomizationEnabled,
         victoryRewardItemId,
         escapeRewardItemId,
+        resultSnapshot: undefined,
       });
       setSession(s);
       setParticipants([]);
@@ -230,6 +262,7 @@ export default function TeacherBossBattlePage() {
         status: "entrance",
         phaseStartedAt: new Date().toISOString(),
         phaseEndsAt: new Date(Date.now() + 3400).toISOString(),
+        resultSnapshot: undefined,
       }),
     );
   }
@@ -669,8 +702,20 @@ export default function TeacherBossBattlePage() {
             0,
             session.bossHp - (session.roundDamage || 0),
           );
-          const enduredNow = !isLastQuestion && rawHp <= 0;
-          const hp = enduredNow ? 1 : rawHp;
+          const remainingAttackRounds = session.roundPlan
+            .slice(session.currentRound + 1)
+            .filter((round) => round.kind === "attack").length;
+          const totalAttackRounds = Math.max(
+            1,
+            session.roundPlan.filter((round) => round.kind === "attack").length,
+          );
+          // 잘 푸는 학급에서도 보스 체력이 중반에 1까지 내려가지 않도록,
+          // 남은 공격 문제 수에 비례한 최소 체력을 유지합니다. 마지막 문제에서는 제한하지 않습니다.
+          const progressionFloor = isLastQuestion
+            ? 0
+            : Math.max(1, Math.round(session.bossMaxHp * (remainingAttackRounds / totalAttackRounds) * 0.72));
+          const hp = isLastQuestion ? rawHp : Math.max(rawHp, progressionFloor);
+          const enduredNow = !isLastQuestion && rawHp < progressionFloor;
           const updated = await saveBossBattleSession(code, {
             ...session,
             bossHp: hp,
