@@ -263,7 +263,7 @@ export function BossBattleArena({
   );
   return (
     <main
-      className={`boss-arena relative h-[100dvh] overflow-hidden bg-slate-950 text-white ${dead || session.paused ? "grayscale" : ""} ${session.paused ? "boss-paused" : ""}`}
+      className={`boss-arena ${isTeacher ? "boss-arena-teacher" : "boss-arena-student"} relative h-[100dvh] overflow-hidden bg-slate-950 text-white ${dead || session.paused ? "grayscale" : ""} ${session.paused ? "boss-paused" : ""}`}
     >
       {session.status === "entrance" && (
         <video
@@ -904,31 +904,38 @@ export function BossBattleArena({
       <style jsx global>{`
         .boss-paused * { animation-play-state: paused !important; transition-duration: 0s !important; }
         .boss-arena { --battle-scale: 1; --dialogue-scale: 1; }
-        .boss-sprite-wrap { transform: translateX(-50%) scale(var(--battle-scale)); transform-origin: bottom center; }
+        .boss-sprite-wrap { left: 50%; transform: translateX(-50%) scale(var(--battle-scale)); transform-origin: bottom center; }
         .boss-player-wrap, .boss-skill-effect, .boss-shield { transform: scale(var(--battle-scale)); transform-origin: bottom left; }
         .boss-dialogue-content { transform: scale(var(--dialogue-scale)); transform-origin: top center; }
+
+        /* 교사 화면은 데스크톱 기준 기존 크기와 구성을 유지합니다. */
+        .boss-arena-teacher .boss-sprite-wrap { left: 53%; }
+
+        /* 태블릿 학생 화면: 전투 60~62%, 대화창 38~40%로 균형 있게 배치 */
         @media (max-width: 1366px), (max-height: 850px) {
-          .boss-arena { --battle-scale: .72; --dialogue-scale: .94; }
-          .boss-arena header { height: 42px !important; padding-left: 10px !important; padding-right: 10px !important; }
-          .boss-arena > section { height: calc(100dvh - 42px) !important; }
-          .boss-stage { flex: 47 1 0% !important; }
-          .boss-dialogue-area { flex: 53 1 0% !important; padding-top: 0 !important; }
-          .boss-sprite-wrap { bottom: -42px !important; }
-          .boss-dialogue-content { width: min(820px, 76vw) !important; }
-          .boss-dialogue-content .text-lg { font-size: 1rem !important; }
-          .boss-dialogue-content button { padding-top: .45rem !important; padding-bottom: .45rem !important; }
+          .boss-arena-student { --battle-scale: .60; --dialogue-scale: .80; }
+          .boss-arena-student header { height: 42px !important; padding-left: 10px !important; padding-right: 10px !important; }
+          .boss-arena-student > section { height: calc(100dvh - 42px) !important; }
+          .boss-arena-student .boss-stage { flex: 62 1 0% !important; }
+          .boss-arena-student .boss-dialogue-area { flex: 38 1 0% !important; padding-top: 0 !important; padding-bottom: 2px !important; }
+          .boss-arena-student .boss-sprite-wrap { left: 53% !important; bottom: -92px !important; }
+          .boss-arena-student .boss-player-wrap { bottom: -18px !important; left: 4% !important; }
+          .boss-arena-student .boss-dialogue-content { width: min(860px, 76vw) !important; }
         }
         @media (max-height: 720px) {
-          .boss-arena { --battle-scale: .6; --dialogue-scale: .84; }
-          .boss-stage { flex: 41 1 0% !important; }
-          .boss-dialogue-area { flex: 59 1 0% !important; }
-          .boss-sprite-wrap { bottom: -32px !important; }
-          .boss-dialogue-content { width: min(900px, 82vw) !important; }
+          .boss-arena-student { --battle-scale: .54; --dialogue-scale: .72; }
+          .boss-arena-student .boss-stage { flex: 60 1 0% !important; }
+          .boss-arena-student .boss-dialogue-area { flex: 40 1 0% !important; }
+          .boss-arena-student .boss-sprite-wrap { left: 53% !important; bottom: -112px !important; }
+          .boss-arena-student .boss-player-wrap { bottom: -26px !important; }
+          .boss-arena-student .boss-dialogue-content { width: min(940px, 82vw) !important; }
         }
         @media (max-width: 1100px) and (orientation: landscape) {
-          .boss-arena { --battle-scale: .55; --dialogue-scale: .82; }
-          .boss-stage { flex: 40 1 0% !important; }
-          .boss-dialogue-area { flex: 60 1 0% !important; }
+          .boss-arena-student { --battle-scale: .50; --dialogue-scale: .68; }
+          .boss-arena-student .boss-stage { flex: 60 1 0% !important; }
+          .boss-arena-student .boss-dialogue-area { flex: 40 1 0% !important; }
+          .boss-arena-student .boss-sprite-wrap { left: 53% !important; bottom: -120px !important; }
+          .boss-arena-student .boss-player-wrap { bottom: -30px !important; }
         }
       `}</style>
       {debug && (
