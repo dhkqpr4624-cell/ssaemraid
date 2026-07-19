@@ -361,10 +361,12 @@ export function BossBattleArena({
             </div>
           )}
           {session.status !== "escaped" && (
-            <div
-              className={`boss-sprite-wrap absolute bottom-[-65px] left-1/2 -translate-x-1/2 ${session.status === "transition" ? "animate-[bossFade_.6s_ease-out_1]" : ""} ${isCinematic ? "animate-[bossSlowShake_3s_ease-in-out_1]" : ""}`}
-            >
-              <BossSprite mode={bossMode} />
+            <div className="boss-sprite-layer pointer-events-none absolute inset-x-0 bottom-[-65px] flex justify-center">
+              <div
+                className={`boss-sprite-wrap relative shrink-0 ${session.status === "transition" ? "animate-[bossFade_.6s_ease-out_1]" : ""} ${isCinematic ? "animate-[bossSlowShake_3s_ease-in-out_1]" : ""}`}
+              >
+                <BossSprite mode={bossMode} />
+              </div>
             </div>
           )}
           {(isTeacher || isResult) &&
@@ -998,14 +1000,24 @@ export function BossBattleArena({
           transform: scale(.86) !important;
           transform-origin: top center !important;
         }
+        .boss-stage-tablet .boss-sprite-layer {
+          /* 보스 위치는 좌표/translate 조합이 아니라 전투 영역 전체 폭을 기준으로 한 flex 중앙 정렬로 고정합니다.
+             따라서 태블릿 브라우저의 transform 계산이나 중첩 스케일과 무관하게 항상 가로 중앙에 놓입니다. */
+          left: 0 !important;
+          right: 0 !important;
+          bottom: -65px !important;
+          width: 100% !important;
+          display: flex !important;
+          justify-content: center !important;
+          transform: none !important;
+        }
         .boss-stage-tablet .boss-sprite-wrap {
-          /* 태블릿에서는 1500px 고정 디자인 캔버스의 정확한 중앙(750px)을 기준점으로 사용합니다.
-             중첩된 flex 레이아웃에서 percentage left가 다른 폭을 참조하는 브라우저 차이를 제거합니다. */
-          left: 750px !important;
+          position: relative !important;
+          left: auto !important;
           right: auto !important;
           top: auto !important;
-          bottom: -65px !important;
-          transform: translateX(-50%) !important;
+          bottom: auto !important;
+          margin: 0 !important;
           transform-origin: bottom center !important;
         }
         .boss-stage-tablet .student-avatar-wrap {
