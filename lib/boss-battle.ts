@@ -146,6 +146,7 @@ export interface BossResultSnapshotEntry {
   attendanceNumber: string;
   nickname: string;
   avatarState?: any;
+  items?: any[];
   state: BossParticipantState;
 }
 export interface BossBattleAnswer {
