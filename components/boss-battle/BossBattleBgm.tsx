@@ -2,12 +2,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Volume2, VolumeX } from "lucide-react";
-import { BOSS_MUTE_EVENT, getBossMuted, setBossMuted } from "@/lib/boss-audio";
+import {
+  BOSS_MUTE_EVENT,
+  getBossMuted,
+  setBossMuted,
+  type BossAudioRole,
+} from "@/lib/boss-audio";
 
-export function BossBattleBgm() {
+export function BossBattleBgm({ role = "teacher" }: { role?: BossAudioRole }) {
   const ref = useRef<HTMLAudioElement | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [muted, setMutedState] = useState(false);
+  const [muted, setMutedState] = useState(role === "student");
   const play = useCallback(async () => {
     try {
       await ref.current?.play();
@@ -15,7 +20,7 @@ export function BossBattleBgm() {
   }, []);
 
   useEffect(() => {
-    const initial = getBossMuted();
+    const initial = getBossMuted(role);
     setMutedState(initial);
     const a = new Audio("/boss-battle/battle-bgm.mp3");
     a.volume = 0.58;
@@ -32,7 +37,9 @@ export function BossBattleBgm() {
       );
     };
     const sync = (e: Event) => {
-      const value = e instanceof CustomEvent ? !!e.detail : getBossMuted();
+      const detail = e instanceof CustomEvent ? e.detail : null;
+      if (detail?.role && detail.role !== role) return;
+      const value = detail?.role === role ? !!detail.muted : getBossMuted(role);
       setMutedState(value);
       a.muted = value;
     };
@@ -50,11 +57,11 @@ export function BossBattleBgm() {
       if (timer.current) clearTimeout(timer.current);
       ref.current = null;
     };
-  }, [play]);
+  }, [play, role]);
 
   const toggle = () => {
-    const next = !getBossMuted();
-    setBossMuted(next);
+    const next = !getBossMuted(role);
+    setBossMuted(role, next);
     setMutedState(next);
     if (ref.current) {
       ref.current.muted = next;
@@ -62,16 +69,8 @@ export function BossBattleBgm() {
     }
   };
   return (
-    <Button
-      variant="outline"
-      className="bg-white text-slate-950"
-      onClick={toggle}
-    >
-      {muted ? (
-        <VolumeX className="mr-2 h-4 w-4" />
-      ) : (
-        <Volume2 className="mr-2 h-4 w-4" />
-      )}
+    <Button variant="outline" className="bg-white text-slate-950" onClick={toggle}>
+      {muted ? <VolumeX className="mr-2 h-4 w-4" /> : <Volume2 className="mr-2 h-4 w-4" />}
       {muted ? "음소거 해제" : "음소거"}
     </Button>
   );

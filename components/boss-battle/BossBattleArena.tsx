@@ -16,7 +16,7 @@ import { SpriteEffect } from "./SpriteEffect";
 import { BossQuestionPanel } from "./BossQuestionPanel";
 import { BossBattleBgm } from "./BossBattleBgm";
 import { Bug, Shield, Skull, Sword, Pause, PlayCircle, QrCode } from "lucide-react";
-import { applyBossMute, BOSS_MUTE_EVENT, getBossMuted } from "@/lib/boss-audio";
+import { applyBossMute, BOSS_MUTE_EVENT, getBossMuted, type BossAudioRole } from "@/lib/boss-audio";
 const attackAsset = (a?: BossAttackKind) =>
   a === "claw2"
     ? { src: "/boss-battle/claw2.png", cols: 2, rows: 3 }
@@ -68,69 +68,35 @@ export function BossBattleArena({
     [showRanking, setShowRanking] = useState(false),
     [muted, setMuted] = useState(false),
     [audioUnlocked, setAudioUnlocked] = useState(false),
-    [tabletStageScale, setTabletStageScale] = useState<number | null>(null),
-    [tabletBaseHeight, setTabletBaseHeight] = useState<number | null>(null),
-    [keyboardShift, setKeyboardShift] = useState(0);
-  const tabletBaseViewport = useRef<{ width: number; height: number } | null>(null);
+    [tabletStageScale, setTabletStageScale] = useState<number | null>(null);
   useEffect(() => {
     if (isTeacher) {
       setTabletStageScale(null);
-      setTabletBaseHeight(null);
-      setKeyboardShift(0);
       return;
     }
-    const isTextInput = (target: EventTarget | null) =>
-      target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
-    const establishBase = () => {
+    const updateStageScale = () => {
       const coarse = window.matchMedia("(pointer: coarse)").matches;
       const landscape = window.matchMedia("(orientation: landscape)").matches;
-      const width = window.innerWidth;
-      const height = window.innerHeight;
+      const width = window.visualViewport?.width ?? window.innerWidth;
+      const height = window.visualViewport?.height ?? window.innerHeight;
       const tablet = coarse && landscape && width <= 1600;
       if (!tablet) {
-        tabletBaseViewport.current = null;
         setTabletStageScale(null);
-        setTabletBaseHeight(null);
-        setKeyboardShift(0);
         return;
       }
-      tabletBaseViewport.current = { width, height };
-      setTabletBaseHeight(height);
+      // PC 학생 전투 화면의 1500x864 디자인 좌표계를 통째로 등비 축소합니다.
       setTabletStageScale(Math.min(width / 1500, height / 864));
     };
-    const updateKeyboardShift = () => {
-      const base = tabletBaseViewport.current;
-      if (!base || !isTextInput(document.activeElement)) {
-        setKeyboardShift(0);
-        return;
-      }
-      const vv = window.visualViewport;
-      if (!vv) return;
-      const obscured = Math.max(0, base.height - (vv.height + vv.offsetTop));
-      // 키보드가 열려도 캔버스 배율은 유지하고, 입력 영역만 보이도록 전체 캔버스를 위로 이동합니다.
-      setKeyboardShift(Math.min(300, Math.max(0, obscured * 0.72)));
-      requestAnimationFrame(() => {
-        const el = document.activeElement as HTMLElement | null;
-        el?.scrollIntoView?.({ block: "center", inline: "nearest", behavior: "smooth" });
-      });
-    };
-    const onFocusIn = (event: FocusEvent) => { if (isTextInput(event.target)) setTimeout(updateKeyboardShift, 80); };
-    const onFocusOut = () => setTimeout(() => setKeyboardShift(0), 80);
-    establishBase();
-    window.addEventListener("orientationchange", establishBase);
-    window.addEventListener("focusin", onFocusIn);
-    window.addEventListener("focusout", onFocusOut);
-    window.visualViewport?.addEventListener("resize", updateKeyboardShift);
-    window.visualViewport?.addEventListener("scroll", updateKeyboardShift);
+    updateStageScale();
+    window.addEventListener("resize", updateStageScale);
+    window.visualViewport?.addEventListener("resize", updateStageScale);
     return () => {
-      window.removeEventListener("orientationchange", establishBase);
-      window.removeEventListener("focusin", onFocusIn);
-      window.removeEventListener("focusout", onFocusOut);
-      window.visualViewport?.removeEventListener("resize", updateKeyboardShift);
-      window.visualViewport?.removeEventListener("scroll", updateKeyboardShift);
+      window.removeEventListener("resize", updateStageScale);
+      window.visualViewport?.removeEventListener("resize", updateStageScale);
     };
   }, [isTeacher]);
 
+  const audioRole: BossAudioRole = isTeacher ? "teacher" : "student";
   const hitAudio = useRef<HTMLAudioElement | null>(null),
     roarAudio = useRef<HTMLAudioElement | null>(null),
     lightningAudio = useRef<HTMLAudioElement | null>(null);
@@ -140,7 +106,7 @@ export function BossBattleArena({
   }, [session.paused]);
   useEffect(() => {
     const syncMute = () => {
-      const value = getBossMuted();
+      const value = getBossMuted(audioRole);
       setMuted(value);
       if (hitAudio.current) hitAudio.current.muted = value;
       if (roarAudio.current) roarAudio.current.muted = value;
@@ -153,7 +119,7 @@ export function BossBattleArena({
       window.removeEventListener(BOSS_MUTE_EVENT, syncMute);
       window.removeEventListener("storage", syncMute);
     };
-  }, []);
+  }, [audioRole]);
   const unlockAudio = async () => {
     try {
       const AudioContextCtor = window.AudioContext || (window as any).webkitAudioContext;
@@ -162,7 +128,7 @@ export function BossBattleArena({
         if (ctx.state === "suspended") await ctx.resume();
         await ctx.close();
       }
-      const probe = applyBossMute(new Audio("/boss-battle/hit.wav"));
+      const probe = applyBossMute(new Audio("/boss-battle/hit.wav"), audioRole);
       probe.volume = 0.001;
       await probe.play();
       probe.pause();
@@ -195,7 +161,7 @@ export function BossBattleArena({
       (session.status === "student_hit" &&
         participant?.state.lastResult === "hit")
     ) {
-      hitAudio.current = applyBossMute(new Audio("/boss-battle/hit.wav"));
+      hitAudio.current = applyBossMute(new Audio("/boss-battle/hit.wav"), audioRole);
       void hitAudio.current.play().catch(() => {});
     }
   }, [session.status, session.currentRound, participant?.state.lastResult]);
@@ -206,7 +172,7 @@ export function BossBattleArena({
     ))
       return;
     roarAudio.current?.pause();
-    const a = applyBossMute(new Audio("/boss-battle/roar.wav"));
+    const a = applyBossMute(new Audio("/boss-battle/roar.wav"), audioRole);
     a.volume = 0.25;
     roarAudio.current = a;
     void a.play().catch(() => {});
@@ -219,7 +185,7 @@ export function BossBattleArena({
     if (session.status !== "boss_attack" || session.bossAttack !== "lightning")
       return;
     lightningAudio.current?.pause();
-    const a = applyBossMute(new Audio("/boss-battle/lightning.wav"));
+    const a = applyBossMute(new Audio("/boss-battle/lightning.wav"), audioRole);
     a.volume = 0.72;
     lightningAudio.current = a;
     void a.play().catch(() => {});
@@ -373,8 +339,7 @@ export function BossBattleArena({
             ? {
                 width: 1500,
                 height: 864,
-                top: tabletBaseHeight !== null ? tabletBaseHeight / 2 : undefined,
-                transform: `translate(-50%, calc(-50% - ${keyboardShift}px)) scale(${tabletStageScale})`,
+                transform: `translate(-50%, -50%) scale(${tabletStageScale})`,
               }
             : undefined
         }
@@ -387,7 +352,7 @@ export function BossBattleArena({
         <div className="flex items-center gap-2">
           {isTeacher && <Button size="sm" onClick={onPause} className="bg-amber-500 text-black hover:bg-amber-400">{session.paused ? <PlayCircle className="mr-1 h-4 w-4"/> : <Pause className="mr-1 h-4 w-4"/>}{session.paused ? "재생" : "일시정지"}</Button>}
           {isTeacher && <Button size="sm" onClick={onShowQr} className="bg-white text-black hover:bg-slate-200"><QrCode className="mr-1 h-4 w-4"/>QR 코드</Button>}
-          <BossBattleBgm />
+          <BossBattleBgm role={audioRole} />
         </div>
       </header>
       <section className="relative z-10 mx-auto flex h-[calc(100dvh-48px)] max-w-[1500px] flex-col">
@@ -420,10 +385,12 @@ export function BossBattleArena({
             </div>
           )}
           {session.status !== "escaped" && (
-            <div
-              className={`boss-sprite-wrap absolute bottom-[-65px] left-1/2 -translate-x-1/2 ${session.status === "transition" ? "animate-[bossFade_.6s_ease-out_1]" : ""} ${isCinematic ? "animate-[bossSlowShake_3s_ease-in-out_1]" : ""}`}
-            >
-              <BossSprite mode={bossMode} />
+            <div className="boss-sprite-layer pointer-events-none absolute inset-x-0 bottom-[-65px] flex justify-center">
+              <div
+                className={`boss-sprite-wrap relative shrink-0 ${session.status === "transition" ? "animate-[bossFade_.6s_ease-out_1]" : ""} ${isCinematic ? "animate-[bossSlowShake_3s_ease-in-out_1]" : ""}`}
+              >
+                <BossSprite mode={bossMode} />
+              </div>
             </div>
           )}
           {(isTeacher || isResult) &&
@@ -1014,7 +981,7 @@ export function BossBattleArena({
         /* 학생 가로형 태블릿은 개별 요소를 다시 배치하지 않습니다.
            PC 학생 화면 전체(1500x864)를 단일 캔버스로 보고 등비 확대/축소합니다. */
         .boss-stage-tablet {
-          position: fixed !important;
+          position: absolute !important;
           left: 50% !important;
           top: 50% !important;
           z-index: 10 !important;
@@ -1057,14 +1024,24 @@ export function BossBattleArena({
           transform: scale(.86) !important;
           transform-origin: top center !important;
         }
+        .boss-stage-tablet .boss-sprite-layer {
+          /* 보스 위치는 좌표/translate 조합이 아니라 전투 영역 전체 폭을 기준으로 한 flex 중앙 정렬로 고정합니다.
+             따라서 태블릿 브라우저의 transform 계산이나 중첩 스케일과 무관하게 항상 가로 중앙에 놓입니다. */
+          left: 0 !important;
+          right: 0 !important;
+          bottom: -65px !important;
+          width: 100% !important;
+          display: flex !important;
+          justify-content: center !important;
+          transform: none !important;
+        }
         .boss-stage-tablet .boss-sprite-wrap {
-          /* 태블릿에서는 1500px 고정 디자인 캔버스의 정확한 중앙(750px)을 기준점으로 사용합니다.
-             중첩된 flex 레이아웃에서 percentage left가 다른 폭을 참조하는 브라우저 차이를 제거합니다. */
-          left: 750px !important;
+          position: relative !important;
+          left: auto !important;
           right: auto !important;
           top: auto !important;
-          bottom: -65px !important;
-          transform: translateX(-50%) !important;
+          bottom: auto !important;
+          margin: 0 !important;
           transform-origin: bottom center !important;
         }
         .boss-stage-tablet .student-avatar-wrap {
