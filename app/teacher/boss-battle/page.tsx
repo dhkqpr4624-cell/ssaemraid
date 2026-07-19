@@ -162,6 +162,7 @@ export default function TeacherBossBattlePage() {
           attendanceNumber: participant.attendanceNumber,
           nickname: student?.nickname || participant.attendanceNumber,
           avatarState: student?.avatarState,
+          items: student?.items || [],
           state: { ...participant.state },
         };
       });
