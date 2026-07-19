@@ -398,15 +398,16 @@ export default function TeacherBossBattlePage() {
       for (const p of participants) {
         const a = answers.find((x) => x.studentId === p.studentId);
         const q = currentBossQuestion(session);
-        if (!a || !q || !isBossAnswerCorrect(q, a.answer) || !a.rpsChoice)
-          continue;
+        if (!a || !q || !isBossAnswerCorrect(q, a.answer)) continue;
+        // 정답 제출은 확인되었지만 네트워크 지연으로 가위바위보 값만 늦게 온 경우에도
+        // 공격 자체가 사라지지 않도록 기본 배율(1배)을 보장합니다.
         const choice = a.rpsChoice,
-          dmg = Math.round(10 * rpsMultiplier(choice, bossChoice));
+          dmg = Math.round(10 * (choice ? rpsMultiplier(choice, bossChoice) : 1));
         total += dmg;
         await updateBossParticipantState(code, session.id, p.studentId, {
           totalDamage: p.state.totalDamage + dmg,
           lastDamage: dmg,
-          lastResult: `${choice}/${bossChoice}`,
+          lastResult: choice ? `${choice}/${bossChoice}` : `fallback/${bossChoice}`,
         });
       }
       setSession(
