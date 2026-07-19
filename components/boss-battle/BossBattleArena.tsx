@@ -292,7 +292,7 @@ export function BossBattleArena({
         </div>
       </header>
       <section className="relative z-10 mx-auto flex h-[calc(100dvh-48px)] max-w-[1500px] flex-col">
-        <div className="relative min-h-0 flex-[58] overflow-hidden">
+        <div className="boss-stage relative min-h-0 flex-[58] overflow-hidden">
           {!isResult && !isCinematic && (
             <div className="absolute left-1/2 top-3 z-20 w-[70%] -translate-x-1/2">
               <div className="mb-1 flex justify-between text-sm font-bold">
@@ -322,7 +322,7 @@ export function BossBattleArena({
           )}
           {session.status !== "escaped" && (
             <div
-              className={`absolute bottom-[-65px] left-1/2 -translate-x-1/2 ${session.status === "transition" ? "animate-[bossFade_.6s_ease-out_1]" : ""} ${isCinematic ? "animate-[bossSlowShake_3s_ease-in-out_1]" : ""}`}
+              className={`boss-sprite-wrap absolute bottom-[-65px] left-1/2 -translate-x-1/2 ${session.status === "transition" ? "animate-[bossFade_.6s_ease-out_1]" : ""} ${isCinematic ? "animate-[bossSlowShake_3s_ease-in-out_1]" : ""}`}
             >
               <BossSprite mode={bossMode} />
             </div>
@@ -449,7 +449,7 @@ export function BossBattleArena({
           )}
           {me && !dead && !isResult && !isCinematic && (
             <div
-              className={`absolute bottom-2 left-[4%] z-40 h-[200px] w-[200px] ${showHit ? "animate-[playerShake_.12s_ease-in-out_infinite]" : ""}`}
+              className={`boss-player-wrap absolute bottom-2 left-[4%] z-40 h-[200px] w-[200px] ${showHit ? "animate-[playerShake_.12s_ease-in-out_infinite]" : ""}`}
             >
               <AvatarRenderer
                 avatarState={{
@@ -510,7 +510,7 @@ export function BossBattleArena({
                 rows={attack.rows}
                 frames={session.bossAttack === "lightning" ? 8 : undefined}
                 duration={session.bossAttack === "lightning" ? 2600 : 1700}
-                className={`absolute z-20 bg-contain bg-center ${session.bossAttack === "lightning" ? "bottom-0 left-[6%] h-[300px] w-[225px]" : "bottom-0 left-[5%] h-[260px] w-[300px]"}`}
+                className={`boss-skill-effect absolute z-20 origin-bottom-left bg-contain bg-center ${session.bossAttack === "lightning" ? "bottom-0 left-[6%] h-[300px] w-[225px]" : "bottom-0 left-[5%] h-[260px] w-[300px]"}`}
               />
             )}
           {!isTeacher &&
@@ -522,9 +522,9 @@ export function BossBattleArena({
                   cols={2}
                   rows={3}
                   duration={1300}
-                  className="absolute bottom-0 left-[3%] z-20 h-[260px] w-[300px] bg-contain bg-center"
+                  className="boss-skill-effect absolute bottom-0 left-[3%] z-20 h-[260px] w-[300px] origin-bottom-left bg-contain bg-center"
                 />
-                <div className="absolute bottom-0 left-[5%] z-20 animate-[comboDelay_1.3s_steps(1)_1]">
+                <div className="boss-skill-effect absolute bottom-0 left-[5%] z-20 origin-bottom-left animate-[comboDelay_1.3s_steps(1)_1]">
                   <SpriteEffect
                     src="/boss-battle/claw2.png"
                     cols={2}
@@ -536,7 +536,7 @@ export function BossBattleArena({
               </>
             )}
           {showShield && (
-            <div className="absolute bottom-8 left-[8%] z-30 h-[210px] w-[210px] animate-pulse rounded-full border-8 border-cyan-300/80 bg-cyan-300/20 shadow-[0_0_40px_cyan]">
+            <div className="boss-shield absolute bottom-8 left-[8%] z-30 h-[210px] w-[210px] origin-bottom-left animate-pulse rounded-full border-8 border-cyan-300/80 bg-cyan-300/20 shadow-[0_0_40px_cyan]">
               <Shield className="absolute left-1/2 top-1/2 h-20 w-20 -translate-x-1/2 -translate-y-1/2 text-cyan-100" />
             </div>
           )}
@@ -554,7 +554,7 @@ export function BossBattleArena({
             </div>
           )}
         </div>
-        <div className="relative min-h-0 flex-[42] overflow-hidden px-3 pb-2 pt-1">
+        <div className="boss-dialogue-area relative min-h-0 flex-[42] overflow-hidden px-3 pb-2 pt-1">
           {showTeacherDialogue && !isResult && (
             <>
               <div className="pointer-events-none absolute inset-x-[18%] bottom-1 top-1 rounded-xl bg-black/72" />
@@ -563,7 +563,7 @@ export function BossBattleArena({
                 alt=""
                 className="pointer-events-none absolute inset-x-[16%] bottom-0 top-0 z-[1] h-full w-[68%] object-fill"
               />
-              <div className="relative z-[2] mx-auto max-w-[760px] scale-[.86] origin-top">
+              <div className="boss-dialogue-content relative z-[2] mx-auto w-[min(760px,68vw)] origin-top">
                 {[
                   "question",
                   "answer_reveal",
@@ -903,17 +903,32 @@ export function BossBattleArena({
       )}
       <style jsx global>{`
         .boss-paused * { animation-play-state: paused !important; transition-duration: 0s !important; }
+        .boss-arena { --battle-scale: 1; --dialogue-scale: 1; }
+        .boss-sprite-wrap { transform: translateX(-50%) scale(var(--battle-scale)); transform-origin: bottom center; }
+        .boss-player-wrap, .boss-skill-effect, .boss-shield { transform: scale(var(--battle-scale)); transform-origin: bottom left; }
+        .boss-dialogue-content { transform: scale(var(--dialogue-scale)); transform-origin: top center; }
         @media (max-width: 1366px), (max-height: 850px) {
+          .boss-arena { --battle-scale: .72; --dialogue-scale: .94; }
           .boss-arena header { height: 42px !important; padding-left: 10px !important; padding-right: 10px !important; }
           .boss-arena > section { height: calc(100dvh - 42px) !important; }
-          .boss-arena > section > div:first-child { flex: 52 1 0% !important; }
-          .boss-arena > section > div:nth-child(2) { flex: 48 1 0% !important; padding-top: 0 !important; }
-          .boss-arena > section > div:nth-child(2) > div.relative { transform: scale(.76) !important; transform-origin: top center !important; }
+          .boss-stage { flex: 47 1 0% !important; }
+          .boss-dialogue-area { flex: 53 1 0% !important; padding-top: 0 !important; }
+          .boss-sprite-wrap { bottom: -42px !important; }
+          .boss-dialogue-content { width: min(820px, 76vw) !important; }
+          .boss-dialogue-content .text-lg { font-size: 1rem !important; }
+          .boss-dialogue-content button { padding-top: .45rem !important; padding-bottom: .45rem !important; }
         }
         @media (max-height: 720px) {
-          .boss-arena > section > div:first-child { flex: 45 1 0% !important; }
-          .boss-arena > section > div:nth-child(2) { flex: 55 1 0% !important; }
-          .boss-arena > section > div:nth-child(2) > div.relative { transform: scale(.66) !important; }
+          .boss-arena { --battle-scale: .6; --dialogue-scale: .84; }
+          .boss-stage { flex: 41 1 0% !important; }
+          .boss-dialogue-area { flex: 59 1 0% !important; }
+          .boss-sprite-wrap { bottom: -32px !important; }
+          .boss-dialogue-content { width: min(900px, 82vw) !important; }
+        }
+        @media (max-width: 1100px) and (orientation: landscape) {
+          .boss-arena { --battle-scale: .55; --dialogue-scale: .82; }
+          .boss-stage { flex: 40 1 0% !important; }
+          .boss-dialogue-area { flex: 60 1 0% !important; }
         }
       `}</style>
       {debug && (
