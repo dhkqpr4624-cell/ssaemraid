@@ -68,31 +68,66 @@ export function BossBattleArena({
     [showRanking, setShowRanking] = useState(false),
     [muted, setMuted] = useState(false),
     [audioUnlocked, setAudioUnlocked] = useState(false),
-    [tabletStageScale, setTabletStageScale] = useState<number | null>(null);
+    [tabletStageScale, setTabletStageScale] = useState<number | null>(null),
+    [tabletBaseHeight, setTabletBaseHeight] = useState<number | null>(null),
+    [keyboardShift, setKeyboardShift] = useState(0);
+  const tabletBaseViewport = useRef<{ width: number; height: number } | null>(null);
   useEffect(() => {
     if (isTeacher) {
       setTabletStageScale(null);
+      setTabletBaseHeight(null);
+      setKeyboardShift(0);
       return;
     }
-    const updateStageScale = () => {
+    const isTextInput = (target: EventTarget | null) =>
+      target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
+    const establishBase = () => {
       const coarse = window.matchMedia("(pointer: coarse)").matches;
       const landscape = window.matchMedia("(orientation: landscape)").matches;
-      const width = window.visualViewport?.width ?? window.innerWidth;
-      const height = window.visualViewport?.height ?? window.innerHeight;
+      const width = window.innerWidth;
+      const height = window.innerHeight;
       const tablet = coarse && landscape && width <= 1600;
       if (!tablet) {
+        tabletBaseViewport.current = null;
         setTabletStageScale(null);
+        setTabletBaseHeight(null);
+        setKeyboardShift(0);
         return;
       }
-      // PC 학생 전투 화면의 1500x864 디자인 좌표계를 통째로 등비 축소합니다.
+      tabletBaseViewport.current = { width, height };
+      setTabletBaseHeight(height);
       setTabletStageScale(Math.min(width / 1500, height / 864));
     };
-    updateStageScale();
-    window.addEventListener("resize", updateStageScale);
-    window.visualViewport?.addEventListener("resize", updateStageScale);
+    const updateKeyboardShift = () => {
+      const base = tabletBaseViewport.current;
+      if (!base || !isTextInput(document.activeElement)) {
+        setKeyboardShift(0);
+        return;
+      }
+      const vv = window.visualViewport;
+      if (!vv) return;
+      const obscured = Math.max(0, base.height - (vv.height + vv.offsetTop));
+      // 키보드가 열려도 캔버스 배율은 유지하고, 입력 영역만 보이도록 전체 캔버스를 위로 이동합니다.
+      setKeyboardShift(Math.min(300, Math.max(0, obscured * 0.72)));
+      requestAnimationFrame(() => {
+        const el = document.activeElement as HTMLElement | null;
+        el?.scrollIntoView?.({ block: "center", inline: "nearest", behavior: "smooth" });
+      });
+    };
+    const onFocusIn = (event: FocusEvent) => { if (isTextInput(event.target)) setTimeout(updateKeyboardShift, 80); };
+    const onFocusOut = () => setTimeout(() => setKeyboardShift(0), 80);
+    establishBase();
+    window.addEventListener("orientationchange", establishBase);
+    window.addEventListener("focusin", onFocusIn);
+    window.addEventListener("focusout", onFocusOut);
+    window.visualViewport?.addEventListener("resize", updateKeyboardShift);
+    window.visualViewport?.addEventListener("scroll", updateKeyboardShift);
     return () => {
-      window.removeEventListener("resize", updateStageScale);
-      window.visualViewport?.removeEventListener("resize", updateStageScale);
+      window.removeEventListener("orientationchange", establishBase);
+      window.removeEventListener("focusin", onFocusIn);
+      window.removeEventListener("focusout", onFocusOut);
+      window.visualViewport?.removeEventListener("resize", updateKeyboardShift);
+      window.visualViewport?.removeEventListener("scroll", updateKeyboardShift);
     };
   }, [isTeacher]);
 
@@ -215,17 +250,40 @@ export function BossBattleArena({
       a.currentTime = 0;
     };
   }, [isResult, session.status]);
+  const snapshotParticipants = useMemo(
+    () =>
+      (session.resultSnapshot || []).map((entry) => ({
+        sessionId: session.id,
+        classCode: session.classCode,
+        studentId: entry.studentId,
+        attendanceNumber: entry.attendanceNumber,
+        lastSeenAt: session.updatedAt,
+        state: entry.state,
+      })),
+    [session.resultSnapshot, session.id, session.classCode, session.updatedAt],
+  );
+  const snapshotStudents = useMemo(
+    () =>
+      (session.resultSnapshot || []).map((entry) => ({
+        id: entry.studentId,
+        nickname: entry.nickname,
+        attendanceNumber: entry.attendanceNumber,
+        avatarState: entry.avatarState,
+      })) as Student[],
+    [session.resultSnapshot],
+  );
   const ranking = useMemo(
     () =>
-      teacherParticipants
+      (isResult && snapshotParticipants.length ? snapshotParticipants : teacherParticipants)
         .slice()
         .sort(
           (a, b) =>
             b.state.totalDamage - a.state.totalDamage ||
             b.state.correctCount - a.state.correctCount,
         ),
-    [teacherParticipants],
+    [isResult, snapshotParticipants, teacherParticipants],
   );
+  const rankingStudents = isResult && snapshotStudents.length ? snapshotStudents : teacherStudents;
   const left = Math.max(
       0,
       session.phaseEndsAt ? new Date(session.phaseEndsAt).getTime() - now : 0,
@@ -315,7 +373,8 @@ export function BossBattleArena({
             ? {
                 width: 1500,
                 height: 864,
-                transform: `translate(-50%, -50%) scale(${tabletStageScale})`,
+                top: tabletBaseHeight !== null ? tabletBaseHeight / 2 : undefined,
+                transform: `translate(-50%, calc(-50% - ${keyboardShift}px)) scale(${tabletStageScale})`,
               }
             : undefined
         }
@@ -361,12 +420,10 @@ export function BossBattleArena({
             </div>
           )}
           {session.status !== "escaped" && (
-            <div className="boss-sprite-layer pointer-events-none absolute inset-x-0 bottom-[-65px] flex justify-center">
-              <div
-                className={`boss-sprite-wrap relative shrink-0 ${session.status === "transition" ? "animate-[bossFade_.6s_ease-out_1]" : ""} ${isCinematic ? "animate-[bossSlowShake_3s_ease-in-out_1]" : ""}`}
-              >
-                <BossSprite mode={bossMode} />
-              </div>
+            <div
+              className={`boss-sprite-wrap absolute bottom-[-65px] left-1/2 -translate-x-1/2 ${session.status === "transition" ? "animate-[bossFade_.6s_ease-out_1]" : ""} ${isCinematic ? "animate-[bossSlowShake_3s_ease-in-out_1]" : ""}`}
+            >
+              <BossSprite mode={bossMode} />
             </div>
           )}
           {(isTeacher || isResult) &&
@@ -835,7 +892,7 @@ export function BossBattleArena({
                 {[1, 0, 2].map((rankIndex) => {
                   const rp = ranking[rankIndex];
                   const st =
-                    rp && teacherStudents.find((x) => x.id === rp.studentId);
+                    rp && rankingStudents.find((x) => x.id === rp.studentId);
                   if (!rp || !st)
                     return (
                       <div
@@ -911,7 +968,7 @@ export function BossBattleArena({
                   </thead>
                   <tbody>
                     {ranking.map((rp, i) => {
-                      const st = teacherStudents.find(
+                      const st = rankingStudents.find(
                         (x) => x.id === rp.studentId,
                       );
                       return (
@@ -957,7 +1014,7 @@ export function BossBattleArena({
         /* 학생 가로형 태블릿은 개별 요소를 다시 배치하지 않습니다.
            PC 학생 화면 전체(1500x864)를 단일 캔버스로 보고 등비 확대/축소합니다. */
         .boss-stage-tablet {
-          position: absolute !important;
+          position: fixed !important;
           left: 50% !important;
           top: 50% !important;
           z-index: 10 !important;
@@ -1000,24 +1057,14 @@ export function BossBattleArena({
           transform: scale(.86) !important;
           transform-origin: top center !important;
         }
-        .boss-stage-tablet .boss-sprite-layer {
-          /* 보스 위치는 좌표/translate 조합이 아니라 전투 영역 전체 폭을 기준으로 한 flex 중앙 정렬로 고정합니다.
-             따라서 태블릿 브라우저의 transform 계산이나 중첩 스케일과 무관하게 항상 가로 중앙에 놓입니다. */
-          left: 0 !important;
-          right: 0 !important;
-          bottom: -65px !important;
-          width: 100% !important;
-          display: flex !important;
-          justify-content: center !important;
-          transform: none !important;
-        }
         .boss-stage-tablet .boss-sprite-wrap {
-          position: relative !important;
-          left: auto !important;
+          /* 태블릿에서는 1500px 고정 디자인 캔버스의 정확한 중앙(750px)을 기준점으로 사용합니다.
+             중첩된 flex 레이아웃에서 percentage left가 다른 폭을 참조하는 브라우저 차이를 제거합니다. */
+          left: 750px !important;
           right: auto !important;
           top: auto !important;
-          bottom: auto !important;
-          margin: 0 !important;
+          bottom: -65px !important;
+          transform: translateX(-50%) !important;
           transform-origin: bottom center !important;
         }
         .boss-stage-tablet .student-avatar-wrap {
