@@ -917,8 +917,13 @@ export function BossBattleArena({
           .boss-arena > section > div:nth-child(2) > div.relative { transform: scale(.66) !important; }
         }
 
-        /* 학생이 가로형 태블릿으로 접속한 경우에만 적용되는 전투 배치 */
+        /* 학생 가로형 태블릿: PC 전투 화면을 하나의 비율 체계로 축소합니다. */
         @media (orientation: landscape) and (max-width: 1400px) and (pointer: coarse) {
+          .boss-arena-student {
+            --tablet-boss-scale: .68;
+            --tablet-avatar-scale: .96;
+            --tablet-content-scale: .96;
+          }
           .boss-arena-student > section {
             height: calc(100dvh - 42px) !important;
           }
@@ -930,60 +935,85 @@ export function BossBattleArena({
             flex: 40 1 0% !important;
             padding: 0 8px 4px !important;
           }
+
+          /* HP 바 아래와 dialogue 위 사이에 보스를 완전히 넣고 정확히 중앙 정렬합니다. */
           .boss-arena-student .boss-sprite-wrap {
-            left: calc(50% + clamp(44px, 4.7vw, 60px)) !important;
-            bottom: -2px !important;
-            transform: translateX(-50%) translateY(-40px) scale(1.02) !important;
+            left: 50% !important;
+            right: auto !important;
+            top: auto !important;
+            bottom: 0 !important;
+            transform: translateX(-50%) scale(var(--tablet-boss-scale)) !important;
             transform-origin: bottom center !important;
           }
+
           .boss-arena-student .student-avatar-wrap {
-            left: 12% !important;
-            bottom: 2px !important;
-            transform: scale(1.08) !important;
+            left: clamp(9%, 10.5vw, 13%) !important;
+            bottom: 4px !important;
+            transform: scale(var(--tablet-avatar-scale)) !important;
             transform-origin: bottom left !important;
             overflow: visible !important;
           }
           .boss-arena-student .student-avatar-wrap > div:last-child {
-            bottom: 0 !important;
+            bottom: -2px !important;
             z-index: 60 !important;
             opacity: 1 !important;
             visibility: visible !important;
           }
+
+          /* dialogue frame/interior/content가 같은 상대 폭과 비율을 유지합니다. */
           .boss-arena-student .boss-dialogue-zone > div.pointer-events-none {
-            left: 13.5% !important;
-            right: 13.5% !important;
-            top: 2% !important;
-            bottom: 2% !important;
+            left: 12.5% !important;
+            right: 12.5% !important;
+            top: 1.5% !important;
+            bottom: 1.5% !important;
           }
           .boss-arena-student .boss-dialogue-zone > img {
-            left: 12% !important;
-            right: 12% !important;
-            width: 76% !important;
+            left: 11% !important;
+            right: 11% !important;
+            width: 78% !important;
             height: 100% !important;
+            object-fit: fill !important;
           }
           .boss-arena-student .boss-dialogue-content {
-            width: 68% !important;
+            width: 72% !important;
             max-width: none !important;
-            transform: scale(.92) !important;
+            transform: scale(var(--tablet-content-scale)) !important;
             transform-origin: top center !important;
+          }
+          .boss-arena-student .boss-dialogue-content > div:first-child {
+            margin-bottom: 4px !important;
+          }
+          .boss-arena-student .boss-dialogue-content .text-2xl {
+            font-size: clamp(1.25rem, 2.15vw, 1.65rem) !important;
+          }
+          .boss-arena-student .boss-dialogue-content .text-lg {
+            font-size: clamp(.95rem, 1.55vw, 1.2rem) !important;
+          }
+          .boss-arena-student .boss-dialogue-content button,
+          .boss-arena-student .boss-dialogue-content input {
+            font-size: clamp(.84rem, 1.25vw, 1rem) !important;
+          }
+          .boss-arena-student .boss-dialogue-content button {
+            min-height: 38px;
           }
         }
 
-        @media (orientation: landscape) and (max-width: 1400px) and (pointer: coarse) and (max-height: 760px) {
-          .boss-arena-student > section > div:first-child { flex: 61 1 0% !important; }
-          .boss-arena-student .boss-dialogue-zone { flex: 39 1 0% !important; }
-          .boss-arena-student .boss-sprite-wrap {
-            left: calc(50% + clamp(44px, 4.7vw, 60px)) !important;
-            transform: translateX(-50%) translateY(-40px) scale(.92) !important;
+        @media (orientation: landscape) and (max-width: 1400px) and (pointer: coarse) and (min-height: 821px) {
+          .boss-arena-student {
+            --tablet-boss-scale: .74;
+            --tablet-avatar-scale: 1.03;
+            --tablet-content-scale: 1;
           }
-          .boss-arena-student .student-avatar-wrap {
-            left: 11% !important;
-            transform: scale(.98) !important;
+        }
+
+        @media (orientation: landscape) and (max-width: 1400px) and (pointer: coarse) and (max-height: 720px) {
+          .boss-arena-student {
+            --tablet-boss-scale: .58;
+            --tablet-avatar-scale: .84;
+            --tablet-content-scale: .88;
           }
-          .boss-arena-student .boss-dialogue-content {
-            width: 68% !important;
-            transform: scale(.86) !important;
-          }
+          .boss-arena-student > section > div:first-child { flex: 60 1 0% !important; }
+          .boss-arena-student .boss-dialogue-zone { flex: 40 1 0% !important; }
         }
       `}</style>
       {debug && (
