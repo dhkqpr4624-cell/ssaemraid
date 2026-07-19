@@ -931,9 +931,9 @@ export function BossBattleArena({
             padding: 0 8px 4px !important;
           }
           .boss-arena-student .boss-sprite-wrap {
-            left: 50% !important;
+            left: calc(50% + clamp(44px, 4.7vw, 60px)) !important;
             bottom: -2px !important;
-            transform: translateX(-50%) translateY(-80px) scale(1.02) !important;
+            transform: translateX(-50%) translateY(-40px) scale(1.02) !important;
             transform-origin: bottom center !important;
           }
           .boss-arena-student .student-avatar-wrap {
@@ -949,14 +949,22 @@ export function BossBattleArena({
             opacity: 1 !important;
             visibility: visible !important;
           }
+          .boss-arena-student .boss-dialogue-zone > div.pointer-events-none {
+            left: 13.5% !important;
+            right: 13.5% !important;
+            top: 2% !important;
+            bottom: 2% !important;
+          }
           .boss-arena-student .boss-dialogue-zone > img {
             left: 12% !important;
             right: 12% !important;
             width: 76% !important;
+            height: 100% !important;
           }
           .boss-arena-student .boss-dialogue-content {
-            max-width: 800px !important;
-            transform: scale(.72) !important;
+            width: 68% !important;
+            max-width: none !important;
+            transform: scale(.92) !important;
             transform-origin: top center !important;
           }
         }
@@ -965,13 +973,17 @@ export function BossBattleArena({
           .boss-arena-student > section > div:first-child { flex: 61 1 0% !important; }
           .boss-arena-student .boss-dialogue-zone { flex: 39 1 0% !important; }
           .boss-arena-student .boss-sprite-wrap {
-            transform: translateX(-50%) translateY(-72px) scale(.92) !important;
+            left: calc(50% + clamp(44px, 4.7vw, 60px)) !important;
+            transform: translateX(-50%) translateY(-40px) scale(.92) !important;
           }
           .boss-arena-student .student-avatar-wrap {
             left: 11% !important;
             transform: scale(.98) !important;
           }
-          .boss-arena-student .boss-dialogue-content { transform: scale(.66) !important; }
+          .boss-arena-student .boss-dialogue-content {
+            width: 68% !important;
+            transform: scale(.86) !important;
+          }
         }
       `}</style>
       {debug && (
