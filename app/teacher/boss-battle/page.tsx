@@ -43,6 +43,7 @@ import {
   resetBossParticipantStates,
   rpsMultiplier,
   saveBossBattleSession,
+  submitBossRps,
   updateBossParticipantState,
   clearBossParticipants,
   type BossBattleParticipant,
@@ -489,13 +490,24 @@ export default function TeacherBossBattlePage() {
         if (!a || !q || !isBossAnswerCorrect(q, a.answer)) continue;
         // 정답 제출은 확인되었지만 네트워크 지연으로 가위바위보 값만 늦게 온 경우에도
         // 공격 자체가 사라지지 않도록 기본 배율(1배)을 보장합니다.
-        const choice = a.rpsChoice,
-          dmg = Math.round(10 * (choice ? rpsMultiplier(choice, bossChoice) : 1));
+        // 제한 시간 안에 선택하지 못한 학생은 교사 진행 클라이언트가
+        // 무작위 선택을 확정해 DB에도 저장합니다.
+        const choice = a.rpsChoice || randomRps();
+        if (!a.rpsChoice) {
+          await submitBossRps(
+            code,
+            session.id,
+            session.currentRound,
+            p.studentId,
+            choice,
+          );
+        }
+        const dmg = Math.round(10 * rpsMultiplier(choice, bossChoice));
         total += dmg;
         await updateBossParticipantState(code, session.id, p.studentId, {
           totalDamage: p.state.totalDamage + dmg,
           lastDamage: dmg,
-          lastResult: choice ? `${choice}/${bossChoice}` : `fallback/${bossChoice}`,
+          lastResult: `${choice}/${bossChoice}`,
         });
       }
       setSession(

@@ -45,6 +45,7 @@ export default function StudentBossBattlePage() {
     >(),
     [error, setError] = useState("");
   const pollSequence = useRef(0);
+  const pollInFlight = useRef(false);
   const pollNowRef = useRef<() => void>(() => {});
   useEffect(() => {
     if (!saved || !code) {
@@ -72,7 +73,10 @@ export default function StudentBossBattlePage() {
     const beat = () =>
       heartbeatBossParticipant(code, session.id, saved.joinOrder, me.id);
     const poll = async () => {
+      if (pollInFlight.current) return;
+      pollInFlight.current = true;
       const requestId = ++pollSequence.current;
+      try {
       const latest = await getBossBattleSession(code);
       if (requestId !== pollSequence.current) return;
       if (!latest) {
@@ -113,14 +117,19 @@ export default function StudentBossBattlePage() {
       const mineAnswer = ans.find((a) => a.studentId === me.id && a.roundIndex === latest.currentRound);
       setCurrentAnswer(mineAnswer);
       setSubmitted(Boolean(mineAnswer));
+      } finally {
+        pollInFlight.current = false;
+      }
     };
     pollNowRef.current = () => { void poll(); };
     beat();
     poll();
     const unsubscribe = subscribeBossBattleRoom(code, session.id, () => pollNowRef.current());
-    const h = setInterval(beat, 15000),
+    // 40명이 한 번에 입장해도 주기 요청이 같은 밀리초에 몰리지 않도록
+    // 브라우저마다 약간 다른 간격을 사용합니다.
+    const h = setInterval(beat, 14000 + Math.floor(Math.random() * 3000)),
       // Realtime이 끊겼을 때를 위한 저빈도 안전망입니다.
-      p = setInterval(poll, 3000);
+      p = setInterval(poll, 3000 + Math.floor(Math.random() * 1200));
     return () => {
       unsubscribe();
       clearInterval(h);
