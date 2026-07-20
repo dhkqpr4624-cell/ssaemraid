@@ -55,6 +55,8 @@ function isOneHandWeaponItem(item: Item | null) {
 
 function isTwoHandedAccessoryItem(item: Item | null) {
   if (!item) return false;
+  // 법전은 손에 드는 장신구이지만 기본 팔 자세를 유지합니다.
+  if (item.id === 'g5-s1-social-u3-accessory-law-book' || item.name === '법전') return false;
   const values = [
     item.id,
     (item as any).itemId,
@@ -68,8 +70,7 @@ function isTwoHandedAccessoryItem(item: Item | null) {
   return values.some(value =>
     value.includes('twohanded') ||
     value.includes('two-handed') ||
-    value.includes('two_handed') ||
-    value.includes('법전')
+    value.includes('two_handed')
   );
 }
 
@@ -312,75 +313,102 @@ export function AvatarRenderer({
         : (topItem as any)?.topRightArmDefaultImageUrl;
     const isSplitTop = Boolean((topItem as any)?.topBodyImageUrl || (topItem as any)?.topLeftArmDefaultImageUrl || (topItem as any)?.topRightArmDefaultImageUrl);
 
+    // 카테고리 기본 레이어 순서입니다. capeLayerPosition 등 아이템별 고유 규칙은 아래에서 별도로 유지합니다.
+    const LAYER = {
+      body: 10,
+      bottom: 20,
+      shoes: 22,
+      capeBack: 30,
+      topBody: 40,
+      baseRightArm: 50,
+      baseLeftArm: 54,
+      topLeftArm: 60,
+      topRightArm: 64,
+      facialParts: 70,
+      faceAccessory: 80,
+      hair: 90,
+      accessory: 100,
+      headAccessory: 110,
+      pet: 120,
+    } as const;
+
     return (
       <div className="relative inline-block" style={{ width: SPRITE_CONFIG.FRAME_SIZE, height: SPRITE_CONFIG.FRAME_SIZE }}>
-        {capeBackAsset && <div style={layerStyle(capeBackAsset, AVATAR_LAYER_ORDER.body - 1)} />}
-        {capeAsset && !isCapeFrontLayer && !isLawGuardianCape && <div style={layerStyle(capeAsset, AVATAR_LAYER_ORDER.cape)} />}
+        <div style={layerStyle(bodyBaseAsset, LAYER.body)} />
+        <div style={tintOverlayStyle(bodyBaseAsset, currentSkinColor, LAYER.body + 1, 0.65)} />
+        <div style={layerStyle(bodyInnerAsset, LAYER.body + 2)} />
 
-        <div style={layerStyle(bodyBaseAsset, AVATAR_LAYER_ORDER.body)} />
-        <div style={tintOverlayStyle(bodyBaseAsset, currentSkinColor, AVATAR_LAYER_ORDER.body + 1, 0.65)} />
-        <div style={layerStyle(bodyInnerAsset, AVATAR_LAYER_ORDER.body + 2)} />
-        {isSplitTop && topBodyAsset && <div style={layerStyle(topBodyAsset, AVATAR_LAYER_ORDER.body + 3)} />}
-        {capeMediumAsset && <div style={layerStyle(capeMediumAsset, AVATAR_LAYER_ORDER.body + 3)} />}
-        <div style={layerStyle(bodyRightArmAsset, AVATAR_LAYER_ORDER.body + 4)} />
-        <div style={tintOverlayStyle(bodyRightArmAsset, currentSkinColor, AVATAR_LAYER_ORDER.body + 5, 0.65)} />
-        <div style={layerStyle(bodyLeftArmAsset, AVATAR_LAYER_ORDER.body + 6)} />
-        <div style={tintOverlayStyle(bodyLeftArmAsset, currentSkinColor, AVATAR_LAYER_ORDER.body + 7, 0.65)} />
-        {isSplitTop && topRightArmAsset && <div style={layerStyle(topRightArmAsset, AVATAR_LAYER_ORDER.body + 8)} />}
-        {isSplitTop && topLeftArmAsset && <div style={layerStyle(topLeftArmAsset, AVATAR_LAYER_ORDER.body + 9)} />}
+        {shouldRenderBottomAsset && bottomAsset && <div style={layerStyle(bottomAsset, LAYER.bottom)} />}
+        {shoesAsset && <div style={layerStyle(shoesAsset, LAYER.shoes)} />}
 
-        {mouthAsset && <div style={layerStyle(mouthAsset, AVATAR_LAYER_ORDER.mouth)} />}
-        {eyebrowAsset && <div style={layerStyle(eyebrowAsset, AVATAR_LAYER_ORDER.eyebrow)} />}
+        {capeBackAsset && <div style={layerStyle(capeBackAsset, LAYER.capeBack)} />}
+        {capeAsset && !isCapeFrontLayer && !isLawGuardianCape && <div style={layerStyle(capeAsset, LAYER.capeBack)} />}
+
+        {isSplitTop && topBodyAsset && <div style={layerStyle(topBodyAsset, LAYER.topBody)} />}
+        {!isSplitTop && topAsset && <div style={layerStyle(topAsset, LAYER.topBody)} />}
+        {/* 법 수호자 망토 medium 파츠의 기존 고유 위치(상의 몸통과 같은 단계)는 유지합니다. */}
+        {capeMediumAsset && <div style={layerStyle(capeMediumAsset, LAYER.topBody + 1)} />}
+
+        <div style={layerStyle(bodyRightArmAsset, LAYER.baseRightArm)} />
+        <div style={tintOverlayStyle(bodyRightArmAsset, currentSkinColor, LAYER.baseRightArm + 1, 0.65)} />
+        <div style={layerStyle(bodyLeftArmAsset, LAYER.baseLeftArm)} />
+        <div style={tintOverlayStyle(bodyLeftArmAsset, currentSkinColor, LAYER.baseLeftArm + 1, 0.65)} />
+        {isSplitTop && topLeftArmAsset && <div style={layerStyle(topLeftArmAsset, LAYER.topLeftArm)} />}
+        {isSplitTop && topRightArmAsset && <div style={layerStyle(topRightArmAsset, LAYER.topRightArm)} />}
+
+        {mouthAsset && <div style={layerStyle(mouthAsset, LAYER.facialParts)} />}
+        {eyebrowAsset && <div style={layerStyle(eyebrowAsset, LAYER.facialParts + 1)} />}
 
         {eyesAsset && (
           <>
             {eyesTintMask ? (
-              <div style={tintOverlayStyle(eyesTintMask, currentEyeColor, AVATAR_LAYER_ORDER.eye, 0.85, 'normal')} />
+              <div style={tintOverlayStyle(eyesTintMask, currentEyeColor, LAYER.facialParts + 2, 0.85, 'normal')} />
             ) : (
-              <div style={layerStyle(eyesAsset, AVATAR_LAYER_ORDER.eye)} />
+              <div style={layerStyle(eyesAsset, LAYER.facialParts + 2)} />
             )}
-            {eyesShadowAsset && <div style={layerStyle(eyesShadowAsset, AVATAR_LAYER_ORDER.eye + 1, { mixBlendMode: 'multiply' })} />}
-            <div style={layerStyle(eyesAsset, AVATAR_LAYER_ORDER.eye + 2)} />
-            {eyesOverlayAsset && <div style={layerStyle(eyesOverlayAsset, AVATAR_LAYER_ORDER.eye + 3)} />}
+            {eyesShadowAsset && <div style={layerStyle(eyesShadowAsset, LAYER.facialParts + 3, { mixBlendMode: 'multiply' })} />}
+            <div style={layerStyle(eyesAsset, LAYER.facialParts + 4)} />
+            {eyesOverlayAsset && <div style={layerStyle(eyesOverlayAsset, LAYER.facialParts + 5)} />}
           </>
         )}
+
+        {faceAsset && <div style={layerStyle(faceAsset, LAYER.faceAccessory)} />}
 
         {(hairAsset || hairTintMask || hairUnderTintMask || hairUpperTintMask) && (
           resolvedHairLayerMode === 'six' ? (
             <>
-              {hairUnderTintMask && <div style={tintOverlayStyle(hairUnderTintMask, currentHairColor, AVATAR_LAYER_ORDER.hair, 1, 'normal')} />}
-              {hairUnderShadowAsset && <div style={layerStyle(hairUnderShadowAsset, AVATAR_LAYER_ORDER.hair + 1, { mixBlendMode: 'multiply' })} />}
-              {hairUnderOutlineAsset && <div style={layerStyle(hairUnderOutlineAsset, AVATAR_LAYER_ORDER.hair + 2)} />}
-              {!hatAsset && hairUpperTintMask && <div style={tintOverlayStyle(hairUpperTintMask, currentHairColor, AVATAR_LAYER_ORDER.hair + 3, 1, 'normal')} />}
-              {!hatAsset && hairUpperShadowAsset && <div style={layerStyle(hairUpperShadowAsset, AVATAR_LAYER_ORDER.hair + 4, { mixBlendMode: 'multiply' })} />}
-              {!hatAsset && hairUpperOutlineAsset && <div style={layerStyle(hairUpperOutlineAsset, AVATAR_LAYER_ORDER.hair + 5)} />}
+              {hairUnderTintMask && <div style={tintOverlayStyle(hairUnderTintMask, currentHairColor, LAYER.hair, 1, 'normal')} />}
+              {hairUnderShadowAsset && <div style={layerStyle(hairUnderShadowAsset, LAYER.hair + 1, { mixBlendMode: 'multiply' })} />}
+              {hairUnderOutlineAsset && <div style={layerStyle(hairUnderOutlineAsset, LAYER.hair + 2)} />}
+              {!hatAsset && hairUpperTintMask && <div style={tintOverlayStyle(hairUpperTintMask, currentHairColor, LAYER.hair + 3, 1, 'normal')} />}
+              {!hatAsset && hairUpperShadowAsset && <div style={layerStyle(hairUpperShadowAsset, LAYER.hair + 4, { mixBlendMode: 'multiply' })} />}
+              {!hatAsset && hairUpperOutlineAsset && <div style={layerStyle(hairUpperOutlineAsset, LAYER.hair + 5)} />}
             </>
           ) : resolvedHairLayerMode === 'triple' ? (
             <>
-              {hairTintMask && <div style={tintOverlayStyle(hairTintMask, currentHairColor, AVATAR_LAYER_ORDER.hair, 1, 'normal')} />}
-              {hairShadowAsset && <div style={layerStyle(hairShadowAsset, AVATAR_LAYER_ORDER.hair + 1, { mixBlendMode: 'multiply' })} />}
-              {(hairOutlineAsset || hairAsset) && <div style={layerStyle(hairOutlineAsset || hairAsset!, AVATAR_LAYER_ORDER.hair + 2)} />}
+              {hairTintMask && <div style={tintOverlayStyle(hairTintMask, currentHairColor, LAYER.hair, 1, 'normal')} />}
+              {hairShadowAsset && <div style={layerStyle(hairShadowAsset, LAYER.hair + 1, { mixBlendMode: 'multiply' })} />}
+              {(hairOutlineAsset || hairAsset) && <div style={layerStyle(hairOutlineAsset || hairAsset!, LAYER.hair + 2)} />}
             </>
           ) : resolvedHairLayerMode === 'singleColorMask' ? (
-            <>{(hairTintMask || hairAsset) && <div style={tintOverlayStyle(hairTintMask || hairAsset!, currentHairColor, AVATAR_LAYER_ORDER.hair, 1, 'normal')} />}</>
+            <>{(hairTintMask || hairAsset) && <div style={tintOverlayStyle(hairTintMask || hairAsset!, currentHairColor, LAYER.hair, 1, 'normal')} />}</>
           ) : (
             <>
-              {hairAsset && <div style={layerStyle(hairAsset, AVATAR_LAYER_ORDER.hair)} />}
-              {hairAsset && <div style={tintOverlayStyle(hairAsset, currentHairColor, AVATAR_LAYER_ORDER.hair + 1, 0.55)} />}
+              {hairAsset && <div style={layerStyle(hairAsset, LAYER.hair)} />}
+              {hairAsset && <div style={tintOverlayStyle(hairAsset, currentHairColor, LAYER.hair + 1, 0.55)} />}
             </>
           )
         )}
 
-        {faceAsset && <div style={layerStyle(faceAsset, AVATAR_LAYER_ORDER.face)} />}
-        {shoesAsset && <div style={layerStyle(shoesAsset, AVATAR_LAYER_ORDER.clothing)} />}
-        {shouldRenderBottomAsset && bottomAsset && <div style={layerStyle(bottomAsset, AVATAR_LAYER_ORDER.clothing + 1)} />}
-        {!isSplitTop && topAsset && <div style={layerStyle(topAsset, AVATAR_LAYER_ORDER.clothing + 2)} />}
-        {capeAsset && isCapeFrontLayer && <div style={layerStyle(capeAsset, AVATAR_LAYER_ORDER.clothing + 4)} />}
-        {capeFrontAsset && <div style={layerStyle(capeFrontAsset, AVATAR_LAYER_ORDER.clothing + 4)} />}
-        {hatAsset && <div style={layerStyle(hatAsset, AVATAR_LAYER_ORDER.hair + 10)} />}
-        {headAccessoryAsset && <div style={layerStyle(headAccessoryAsset, AVATAR_LAYER_ORDER.headAccessory)} />}
-        {accessoryAsset && <div style={layerStyle(accessoryAsset, AVATAR_LAYER_ORDER.accessory)} />}
-        {petAsset && <div style={layerStyle(petAsset, AVATAR_LAYER_ORDER.pet)} />}
+        {accessoryAsset && <div style={layerStyle(accessoryAsset, LAYER.accessory)} />}
+        {/* 모자(hat)는 머리카락을 가리는 기존 아이템 고유 동작을 유지합니다. */}
+        {hatAsset && <div style={layerStyle(hatAsset, LAYER.headAccessory)} />}
+        {headAccessoryAsset && <div style={layerStyle(headAccessoryAsset, LAYER.headAccessory + 1)} />}
+        {petAsset && <div style={layerStyle(petAsset, LAYER.pet)} />}
+
+        {/* front 지정 망토는 기존 고유 레이어 규칙대로 전면에 표시합니다. */}
+        {capeAsset && isCapeFrontLayer && <div style={layerStyle(capeAsset, LAYER.accessory + 1)} />}
+        {capeFrontAsset && <div style={layerStyle(capeFrontAsset, LAYER.accessory + 1)} />}
 
         {showAnimation && showDebugOverlay && (
           <div className="absolute bottom-0 left-0 right-0 text-[8px] bg-black/50 text-white p-1 text-center" style={{ zIndex: 100 }}>
