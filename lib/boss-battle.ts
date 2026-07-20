@@ -245,7 +245,7 @@ export function buildRoundPlan(questions: QuizQuestion[]): BossRoundPlan[] {
 const EXPECTED_ANSWER_RATE = 0.6;
 // 승(2배), 무(1배), 패(0.5배)가 같은 확률일 때의 기대 배율: 7 / 6
 const EXPECTED_RPS_MULTIPLIER = 7 / 6;
-const BOSS_HP_EXPECTED_DAMAGE_FACTOR = 0.95;
+const BOSS_HP_EXPECTED_DAMAGE_FACTOR = 0.90;
 
 function participantHpScale(playerCount: number) {
   if (playerCount >= 31) return 1.08;
