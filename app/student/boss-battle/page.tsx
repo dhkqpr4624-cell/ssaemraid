@@ -46,7 +46,6 @@ export default function StudentBossBattlePage() {
     [error, setError] = useState("");
   const pollSequence = useRef(0);
   const pollNowRef = useRef<() => void>(() => {});
-  const pollBusyRef = useRef(false);
   useEffect(() => {
     if (!saved || !code) {
       router.replace("/student");
@@ -70,15 +69,10 @@ export default function StudentBossBattlePage() {
   }, [session?.currentRound]);
   useEffect(() => {
     if (!session || !saved || !me) return;
-    const beat = () => {
-      if (document.visibilityState !== "visible") return Promise.resolve(true);
-      return heartbeatBossParticipant(code, session.id, saved.joinOrder, me.id);
-    };
+    const beat = () =>
+      heartbeatBossParticipant(code, session.id, saved.joinOrder, me.id);
     const poll = async () => {
-      if (pollBusyRef.current || document.visibilityState !== "visible") return;
-      pollBusyRef.current = true;
       const requestId = ++pollSequence.current;
-      try {
       const latest = await getBossBattleSession(code);
       if (requestId !== pollSequence.current) return;
       if (!latest) {
@@ -119,32 +113,16 @@ export default function StudentBossBattlePage() {
       const mineAnswer = ans.find((a) => a.studentId === me.id && a.roundIndex === latest.currentRound);
       setCurrentAnswer(mineAnswer);
       setSubmitted(Boolean(mineAnswer));
-      } finally {
-        pollBusyRef.current = false;
-      }
     };
     pollNowRef.current = () => { void poll(); };
     beat();
     poll();
-    const unsubscribe = subscribeBossBattleRoom(
-      code,
-      session.id,
-      () => pollNowRef.current(),
-      { sessions: true, guests: true, participants: false, answers: false, debounceMs: 700 },
-    );
-    const onVisibility = () => {
-      if (document.visibilityState === "visible") {
-        void beat();
-        void poll();
-      }
-    };
-    document.addEventListener("visibilitychange", onVisibility);
-    const h = setInterval(beat, 30000),
-      // 세션 변경은 Realtime으로 즉시 받고, 전체 목록 조회는 저빈도 안전망만 둡니다.
-      p = setInterval(poll, 8000);
+    const unsubscribe = subscribeBossBattleRoom(code, session.id, () => pollNowRef.current());
+    const h = setInterval(beat, 15000),
+      // Realtime이 끊겼을 때를 위한 저빈도 안전망입니다.
+      p = setInterval(poll, 3000);
     return () => {
       unsubscribe();
-      document.removeEventListener("visibilitychange", onVisibility);
       clearInterval(h);
       clearInterval(p);
     };
