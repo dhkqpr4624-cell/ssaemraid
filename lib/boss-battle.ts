@@ -413,26 +413,64 @@ export async function saveBossBattleSession(
     localStorage.setItem(key(code), JSON.stringify(merged));
   return merged;
 }
+export interface BossBattleSubscriptionOptions {
+  sessions?: boolean;
+  guests?: boolean;
+  participants?: boolean;
+  answers?: boolean;
+  debounceMs?: number;
+}
+
 export function subscribeBossBattleRoom(
   classCode: string,
   sessionId: string | undefined,
   onChange: () => void,
+  options: BossBattleSubscriptionOptions = {},
 ) {
   if (!enabled || typeof window === "undefined") return () => {};
   const code = classCode.trim().toUpperCase();
+  const {
+    sessions = true,
+    guests = true,
+    participants = false,
+    answers = false,
+    debounceMs = 500,
+  } = options;
   let timer: ReturnType<typeof setTimeout> | null = null;
   const notify = () => {
     if (timer) clearTimeout(timer);
-    timer = setTimeout(onChange, 80);
+    timer = setTimeout(onChange, debounceMs);
   };
-  const channel = supabase
-    .channel(`ssaemraid:${code}:${sessionId || "room"}:${Math.random()}`)
-    .on("postgres_changes", { event: "*", schema: "public", table: "boss_battle_sessions", filter: `class_code=eq.${code}` }, notify)
-    .on("postgres_changes", { event: "*", schema: "public", table: "raid_guests", filter: `room_code=eq.${code}` }, notify);
-  if (sessionId) {
-    channel
-      .on("postgres_changes", { event: "*", schema: "public", table: "boss_battle_participants", filter: `session_id=eq.${sessionId}` }, notify)
-      .on("postgres_changes", { event: "*", schema: "public", table: "boss_battle_answers", filter: `session_id=eq.${sessionId}` }, notify);
+  let channel = supabase.channel(
+    `ssaemraid:${code}:${sessionId || "room"}:${Math.random()}`,
+  );
+  if (sessions) {
+    channel = channel.on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "boss_battle_sessions", filter: `class_code=eq.${code}` },
+      notify,
+    );
+  }
+  if (guests) {
+    channel = channel.on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "raid_guests", filter: `room_code=eq.${code}` },
+      notify,
+    );
+  }
+  if (sessionId && participants) {
+    channel = channel.on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "boss_battle_participants", filter: `session_id=eq.${sessionId}` },
+      notify,
+    );
+  }
+  if (sessionId && answers) {
+    channel = channel.on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "boss_battle_answers", filter: `session_id=eq.${sessionId}` },
+      notify,
+    );
   }
   channel.subscribe();
   return () => {

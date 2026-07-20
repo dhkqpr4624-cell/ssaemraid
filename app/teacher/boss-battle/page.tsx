@@ -75,7 +75,8 @@ export default function TeacherBossBattlePage() {
   const resolving = useRef(false),
     phaseTimerBusy = useRef(false),
     participantCountRef = useRef(0),
-    hpScalingBusy = useRef(false);
+    hpScalingBusy = useRef(false),
+    roomPollBusyRef = useRef(false);
   const scaledBossDamage = (attack: any, current: BossBattleSession) => {
     const defenseCount = Math.max(
       1,
@@ -108,6 +109,9 @@ export default function TeacherBossBattlePage() {
   useEffect(() => {
     if (!session?.id) return;
     const run = async () => {
+      if (roomPollBusyRef.current || document.visibilityState !== "visible") return;
+      roomPollBusyRef.current = true;
+      try {
       const [ss, ps, guests] = await Promise.all([
         getBossBattleSession(code),
         getBossParticipants(
@@ -138,11 +142,27 @@ export default function TeacherBossBattlePage() {
       }
       setParticipants(ps);
       setStudents(guests.map(raidGuestToStudent));
+      } finally {
+        roomPollBusyRef.current = false;
+      }
     };
     run();
-    const unsubscribe = subscribeBossBattleRoom(code, session.id, () => { void run(); });
-    const t = setInterval(run, 2500);
-    return () => { unsubscribe(); clearInterval(t); };
+    const unsubscribe = subscribeBossBattleRoom(
+      code,
+      session.id,
+      () => { void run(); },
+      { sessions: true, guests: true, participants: false, answers: true, debounceMs: 700 },
+    );
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") void run();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    const t = setInterval(run, 5000);
+    return () => {
+      unsubscribe();
+      document.removeEventListener("visibilitychange", onVisibility);
+      clearInterval(t);
+    };
   }, [code, session?.id]);
 
   useEffect(() => {
