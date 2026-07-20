@@ -203,6 +203,45 @@ export default function TeacherBossBattlePage() {
       setSession(saved);
     }
   }
+  async function applyWaitingRoomSettings() {
+    if (!session || session.status !== "waiting") return session;
+
+    const safeCount = Math.max(1, Math.min(50, Number(count) || 1));
+    const safeSeconds = Math.max(5, Math.min(180, Number(seconds) || 20));
+    const pool: QuizQuestion[] = preparedChosen.length
+      ? preparedChosen
+      : HAETAE_PREPARED_QUESTIONS;
+
+    // 기존에 뽑힌 문제는 가능한 한 유지하고, 문제 수가 늘어난 경우에만 새 문제를 보충합니다.
+    const poolIds = new Set(pool.map((question) => question.id));
+    const kept = (session.selectedQuestions || []).filter((question) => poolIds.has(question.id));
+    const keptIds = new Set(kept.map((question) => question.id));
+    const additions = pool
+      .filter((question) => !keptIds.has(question.id))
+      .sort(() => Math.random() - 0.5);
+    const questions = [...kept, ...additions].slice(0, Math.min(safeCount, pool.length));
+    const roundPlan = buildRoundPlan(questions);
+    const attackCount = Math.max(1, roundPlan.filter((round) => round.kind === "attack").length);
+    const bossMaxHp = calculateBossMaxHp(
+      Math.max(1, participants.length || students.length),
+      attackCount,
+    );
+
+    const saved = await saveBossBattleSession(code, {
+      ...session,
+      questionCount: questions.length,
+      timeLimitSeconds: safeSeconds,
+      selectedQuestions: questions,
+      roundPlan,
+      bossMaxHp,
+      bossHp: bossMaxHp,
+    });
+    setCount(questions.length);
+    setSeconds(safeSeconds);
+    setSession(saved);
+    return saved;
+  }
+
   async function createRoom() {
     setBusy(true);
     try {
@@ -244,11 +283,12 @@ export default function TeacherBossBattlePage() {
   }
   async function start() {
     if (!session || !participants.length) return alert("참여 학생이 없습니다.");
-    const plan = session.roundPlan?.length
-      ? session.roundPlan.map((round, index, rounds) =>
+    const currentSession = (await applyWaitingRoomSettings()) || session;
+    const plan = currentSession.roundPlan?.length
+      ? currentSession.roundPlan.map((round, index, rounds) =>
           index === rounds.length - 1 ? { ...round, kind: "attack" as const } : round,
         )
-      : buildRoundPlan(session.selectedQuestions);
+      : buildRoundPlan(currentSession.selectedQuestions);
     const hp = calculateBossMaxHp(
       participants.length,
       plan.filter((x) => x.kind === "attack").length,
@@ -256,7 +296,7 @@ export default function TeacherBossBattlePage() {
     await resetBossParticipantStates(code, session.id);
     setSession(
       await saveBossBattleSession(code, {
-        ...session,
+        ...currentSession,
         roundPlan: plan,
         bossMaxHp: hp,
         bossHp: hp,
@@ -902,6 +942,9 @@ export default function TeacherBossBattlePage() {
                 type="number"
                 value={count}
                 onChange={(e) => setCount(+e.target.value)}
+                onBlur={() => void applyWaitingRoomSettings()}
+                min={1}
+                max={50}
               />
             </div>
             <div>
@@ -910,6 +953,9 @@ export default function TeacherBossBattlePage() {
                 type="number"
                 value={seconds}
                 onChange={(e) => setSeconds(+e.target.value)}
+                onBlur={() => void applyWaitingRoomSettings()}
+                min={5}
+                max={180}
               />
             </div>
             <div>
