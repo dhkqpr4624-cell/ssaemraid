@@ -12,7 +12,7 @@ export const RPS_TIME_SECONDS = 20;
 export const ANSWER_REVEAL_SECONDS = 7;
 export const RPS_REVEAL_SECONDS = 5;
 export const DEFENSE_REVEAL_SECONDS = 4;
-export const REVIVE_REQUIRED_QUESTIONS = 3;
+export const REVIVE_REQUIRED_QUESTIONS = 2;
 
 export type BossBattleStatus =
   | "waiting"
@@ -241,16 +241,16 @@ export function buildRoundPlan(questions: QuizQuestion[]): BossRoundPlan[] {
   if (out.length > 0) out[out.length - 1] = { ...out[out.length - 1], kind: "attack" };
   return out;
 }
-// 15차 밸런스 기준값
+// 16차 밸런스 기준값: 처치 약 30%, 도망 중심, 전멸은 모든 학생 쓰러짐일 때만
 const EXPECTED_ANSWER_RATE = 0.6;
 // 승(2배), 무(1배), 패(0.5배)가 같은 확률일 때의 기대 배율: 7 / 6
 const EXPECTED_RPS_MULTIPLIER = 7 / 6;
-const BOSS_HP_EXPECTED_DAMAGE_FACTOR = 1.08;
+const BOSS_HP_EXPECTED_DAMAGE_FACTOR = 0.90;
 
-function participantHpScale(playerCount: number) {
-  if (playerCount >= 31) return 1.08;
-  if (playerCount >= 21) return 1.05;
-  if (playerCount >= 11) return 1.03;
+function participantHpScale(_playerCount: number) {
+  // 참가 인원에 따른 추가 체력 보정은 적용하지 않습니다.
+  // 기본 HP 공식에 이미 참가자 수가 비례 반영되므로,
+  // 모든 인원 구간에서 동일한 승률에 가깝게 유지합니다.
   return 1;
 }
 
@@ -259,8 +259,8 @@ export function calculateBossMaxHp(
   attackQuestionCount: number,
 ) {
   // 문항 평균 정답률 60%와 가위바위보 기대 배율을 기준으로 예상 총 피해를 계산합니다.
-  // 참가자가 많을수록 평균값이 안정되어 전투가 쉬워지는 현상을 완화하기 위해
-  // 11~40명 구간에 3~8%의 완만한 HP 보정을 추가합니다.
+  // 참가자 수는 예상 총 피해와 보스 HP에 동일하게 비례 반영됩니다.
+  // 별도의 인원 구간 보정은 두지 않아 소규모와 대규모 전투의 승률 차이를 줄입니다.
   const normalizedPlayers = Math.max(1, Math.min(MAX_BOSS_PLAYERS, playerCount));
   const expectedDamage =
     normalizedPlayers *
@@ -272,7 +272,7 @@ export function calculateBossMaxHp(
     expectedDamage *
     BOSS_HP_EXPECTED_DAMAGE_FACTOR *
     participantHpScale(normalizedPlayers);
-  return Math.max(120, Math.round(scaledHp / 10) * 10);
+  return Math.max(100, Math.round(scaledHp / 10) * 10);
 }
 export function normalizeText(text: string) {
   return String(text || "")
