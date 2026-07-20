@@ -12,7 +12,7 @@ export const RPS_TIME_SECONDS = 20;
 export const ANSWER_REVEAL_SECONDS = 7;
 export const RPS_REVEAL_SECONDS = 5;
 export const DEFENSE_REVEAL_SECONDS = 4;
-export const REVIVE_REQUIRED_QUESTIONS = 3;
+export const REVIVE_REQUIRED_QUESTIONS = 2;
 
 export type BossBattleStatus =
   | "waiting"
@@ -241,11 +241,11 @@ export function buildRoundPlan(questions: QuizQuestion[]): BossRoundPlan[] {
   if (out.length > 0) out[out.length - 1] = { ...out[out.length - 1], kind: "attack" };
   return out;
 }
-// 15차 밸런스 기준값
+// 16차 밸런스 기준값: 처치 약 30%, 도망 중심, 전멸은 모든 학생 쓰러짐일 때만
 const EXPECTED_ANSWER_RATE = 0.6;
 // 승(2배), 무(1배), 패(0.5배)가 같은 확률일 때의 기대 배율: 7 / 6
 const EXPECTED_RPS_MULTIPLIER = 7 / 6;
-const BOSS_HP_EXPECTED_DAMAGE_FACTOR = 1.08;
+const BOSS_HP_EXPECTED_DAMAGE_FACTOR = 0.95;
 
 function participantHpScale(playerCount: number) {
   if (playerCount >= 31) return 1.08;
@@ -272,7 +272,7 @@ export function calculateBossMaxHp(
     expectedDamage *
     BOSS_HP_EXPECTED_DAMAGE_FACTOR *
     participantHpScale(normalizedPlayers);
-  return Math.max(120, Math.round(scaledHp / 10) * 10);
+  return Math.max(100, Math.round(scaledHp / 10) * 10);
 }
 export function normalizeText(text: string) {
   return String(text || "")

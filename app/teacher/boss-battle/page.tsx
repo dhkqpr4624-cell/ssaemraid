@@ -26,6 +26,7 @@ import {
   MAX_BOSS_PLAYERS,
   RPS_REVEAL_SECONDS,
   RPS_TIME_SECONDS,
+  REVIVE_REQUIRED_QUESTIONS,
   buildRoundPlan,
   calculateBossMaxHp,
   chooseBossAttack,
@@ -80,11 +81,12 @@ export default function TeacherBossBattlePage() {
       1,
       current.roundPlan.filter((x) => x.kind === "defense").length,
     );
-    // 기존 총 기대 피해량(130)을 약 8% 낮춰 연속 오답 시 전멸 편차를 완화합니다.
-    const base = Math.min(42, Math.max(13, Math.ceil(120 / defenseCount)));
+    // 전멸은 모든 학생이 쓰러졌을 때만 발생합니다. 다만 반복 오답의 긴장감을 위해
+    // 기존 기준보다 약 12.5% 높은 총 잠재 피해량을 사용합니다.
+    const base = Math.min(47, Math.max(15, Math.ceil(135 / defenseCount)));
     const multiplier =
       attack === "lightning" ? 1.45 : attack === "clawCombo" ? 1.2 : 1;
-    return Math.min(60, Math.max(10, Math.round(base * multiplier)));
+    return Math.min(68, Math.max(10, Math.round(base * multiplier)));
   };
   useEffect(() => {
     if (!code) return;
@@ -386,7 +388,7 @@ export default function TeacherBossBattlePage() {
         if (p.state.knockedOut) {
           if (correctIds.size > 0) {
             const rp = p.state.reviveProgress + 1;
-            if (rp >= 3)
+            if (rp >= REVIVE_REQUIRED_QUESTIONS)
               await updateBossParticipantState(code, session.id, p.studentId, {
                 knockedOut: false,
                 hp: 40,
