@@ -1,7 +1,7 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -44,7 +44,7 @@ function getCurrentQuestion(sess: LiveQuizSession | null, quiz: Quiz | null) {
   return quiz.questions.find(q => q.id === questionId) || null;
 }
 
-export default function StudentLiveQuizPage() {
+function StudentLiveQuizPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const code = searchParams.get('code');
@@ -501,5 +501,14 @@ export default function StudentLiveQuizPage() {
         )}
       </div>
     </main>
+  );
+}
+
+
+export default function StudentLiveQuizPage() {
+  return (
+    <Suspense fallback={<main className="min-h-screen flex items-center justify-center">불러오는 중...</main>}>
+      <StudentLiveQuizPageContent />
+    </Suspense>
   );
 }

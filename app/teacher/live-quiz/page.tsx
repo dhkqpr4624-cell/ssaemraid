@@ -1,7 +1,7 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -46,7 +46,7 @@ function answerLabel(question: QuizQuestion | null) {
   return (question.correctAnswers || []).map(index => question.options?.[index] || `${index + 1}번`).join(', ');
 }
 
-export default function LiveQuizPage() {
+function LiveQuizPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const code = searchParams.get('code');
@@ -540,5 +540,14 @@ export default function LiveQuizPage() {
         )}
       </div>
     </main>
+  );
+}
+
+
+export default function LiveQuizPage() {
+  return (
+    <Suspense fallback={<main className="min-h-screen flex items-center justify-center">불러오는 중...</main>}>
+      <LiveQuizPageContent />
+    </Suspense>
   );
 }
