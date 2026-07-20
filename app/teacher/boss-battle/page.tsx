@@ -353,6 +353,25 @@ export default function TeacherBossBattlePage() {
       );
       return;
     }
+
+    // 부활 조건을 채운 학생은 현재 문제의 모든 연출과 피해 처리가 끝난 뒤,
+    // 다음 문제로 넘어가는 순간에 부활시킵니다.
+    const latestParticipants = await getBossParticipants(code, sourceSession.id, false);
+    for (const participant of latestParticipants) {
+      if (
+        participant.state.knockedOut &&
+        participant.state.reviveProgress >= REVIVE_REQUIRED_QUESTIONS
+      ) {
+        await updateBossParticipantState(code, sourceSession.id, participant.studentId, {
+          knockedOut: false,
+          hp: 40,
+          reviveProgress: 0,
+          reviveCount: participant.state.reviveCount + 1,
+          lastResult: "revived",
+        });
+      }
+    }
+
     setSession(
       await saveBossBattleSession(code, {
         ...sourceSession,
@@ -388,18 +407,10 @@ export default function TeacherBossBattlePage() {
         if (p.state.knockedOut) {
           if (correctIds.size > 0) {
             const rp = p.state.reviveProgress + 1;
-            if (rp >= REVIVE_REQUIRED_QUESTIONS)
-              await updateBossParticipantState(code, session.id, p.studentId, {
-                knockedOut: false,
-                hp: 40,
-                reviveProgress: 0,
-                reviveCount: p.state.reviveCount + 1,
-                lastResult: "revived",
-              });
-            else
-              await updateBossParticipantState(code, session.id, p.studentId, {
-                reviveProgress: rp,
-              });
+            await updateBossParticipantState(code, session.id, p.studentId, {
+              // 조건 달성 여부만 기록하고 실제 부활은 다음 문제 진입 직전에 처리합니다.
+              reviveProgress: Math.min(rp, REVIVE_REQUIRED_QUESTIONS),
+            });
           }
           continue;
         }
@@ -697,8 +708,15 @@ export default function TeacherBossBattlePage() {
               setSession(healedSession);
             }
             const after = await getBossParticipants(code, session.id, false),
+              hasReviveReady = after.some(
+                (p) =>
+                  p.state.knockedOut &&
+                  p.state.reviveProgress >= REVIVE_REQUIRED_QUESTIONS,
+              ),
               allDead =
-                after.length > 0 && after.every((p) => p.state.knockedOut);
+                after.length > 0 &&
+                after.every((p) => p.state.knockedOut) &&
+                !hasReviveReady;
             if (allDead)
               setSession(
                 await saveBossBattleSession(code, {
@@ -719,7 +737,15 @@ export default function TeacherBossBattlePage() {
             // 학생 클라이언트가 백그라운드 탭 복귀 시 자신의 피해를 먼저
             // 확정했을 수 있으므로, pending 목록이 비어도 전멸/피격 상태를 재확인한다.
             const after = await getBossParticipants(code, session.id, false);
-            const allDead = after.length > 0 && after.every((p) => p.state.knockedOut);
+            const hasReviveReady = after.some(
+              (p) =>
+                p.state.knockedOut &&
+                p.state.reviveProgress >= REVIVE_REQUIRED_QUESTIONS,
+            );
+            const allDead =
+              after.length > 0 &&
+              after.every((p) => p.state.knockedOut) &&
+              !hasReviveReady;
             const anyHit = after.some((p) => p.state.lastResult === "hit");
             if (allDead)
               setSession(await saveBossBattleSession(code, { ...session, status: "wiped" }));

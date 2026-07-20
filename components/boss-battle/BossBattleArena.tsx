@@ -10,7 +10,7 @@ import type {
   BossBattleSession,
   RpsChoice,
 } from "@/lib/boss-battle";
-import { currentBossQuestion, rpsMultiplier } from "@/lib/boss-battle";
+import { currentBossQuestion, rpsMultiplier, REVIVE_REQUIRED_QUESTIONS } from "@/lib/boss-battle";
 import { BossSprite } from "./BossSprite";
 import { SpriteEffect } from "./SpriteEffect";
 import { BossQuestionPanel } from "./BossQuestionPanel";
@@ -619,7 +619,7 @@ export function BossBattleArena({
                 <div className="text-3xl font-black">전투 불능</div>
                 <div className="mt-2 text-xl text-amber-300">
                   부활까지{" "}
-                  {Math.max(0, 3 - (participant?.state.reviveProgress || 0))}
+                  {Math.max(0, REVIVE_REQUIRED_QUESTIONS - (participant?.state.reviveProgress || 0))}
                   문제
                 </div>
               </div>
@@ -679,22 +679,22 @@ export function BossBattleArena({
                   session.status === "answer_reveal") &&
                   q &&
                   (isTeacher ? (
-                    session.status === "answer_reveal" ? (
+                    <div className="mx-auto max-w-5xl">
                       <BossQuestionPanel
                         key={`teacher-${session.currentRound}-${q.id}`}
                         question={q}
                         disabled
-                        reveal
+                        reveal={session.status === "answer_reveal"}
                         submittedAnswer={undefined}
-                        isCorrect={true}
+                        isCorrect={session.status === "answer_reveal" ? true : undefined}
                         onSubmit={() => {}}
                       />
-                    ) : (
-                      <div className="mx-auto max-w-5xl rounded-2xl bg-amber-50 p-6 text-center text-xl font-bold text-slate-900">
-                        <div>학생들이 문제를 풀고 있습니다.</div>
-                        <div className="mt-3 text-2xl">{q.text}</div>
-                      </div>
-                    )
+                      {session.status === "question" && (
+                        <div className="mt-2 text-center text-amber-200">
+                          학생들이 문제를 풀고 있습니다.
+                        </div>
+                      )}
+                    </div>
                   ) : (
                     <div className="mx-auto max-w-5xl">
                       <BossQuestionPanel
