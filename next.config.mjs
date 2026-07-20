@@ -4,6 +4,9 @@ const repositoryName = (process.env.GITHUB_REPOSITORY || '').split('/')[1] || ''
 const pagesBasePath = isGitHubPagesBuild && repositoryName ? `/${repositoryName}` : ''
 
 const nextConfig = {
+  env: {
+    NEXT_PUBLIC_BASE_PATH: pagesBasePath,
+  },
   typescript: {
     ignoreBuildErrors: true,
   },

@@ -14,6 +14,7 @@ import { BossWaitingRoomBgm } from "@/components/boss-battle/BossWaitingRoomBgm"
 import { BossBattleArena } from "@/components/boss-battle/BossBattleArena";
 import { ArrowLeft, Play, RefreshCw, StopCircle, Users, QrCode, X, Pause, PlayCircle } from "lucide-react";
 import { getBossById } from "@/lib/boss-catalog";
+import { appPath, appUrl } from "@/lib/app-path";
 import { REWARD_FOLDER_ITEMS } from "@/lib/reward-folder-items";
 import {
   HAETAE_PREPARED_QUIZ_GROUPS,
@@ -234,10 +235,13 @@ export default function TeacherBossBattlePage() {
         victoryRewardItemId,
         escapeRewardItemId,
         resultSnapshot: undefined,
-      });
+      }, { requireRemote: true, forceNew: true });
       setSession(s);
       setParticipants([]);
-
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("[Boss Battle] room creation failed:", error);
+      alert(`방을 만들지 못했습니다.\n\n${message}\n\nSupabase SQL 설정과 GitHub/Vercel/Netlify 환경 변수를 확인해 주세요.`);
     } finally {
       setBusy(false);
     }
@@ -867,7 +871,7 @@ export default function TeacherBossBattlePage() {
           onPause={togglePause}
           onShowQr={() => setQrOpen(true)}
         />
-        {qrOpen && <div className="fixed inset-0 z-[500] grid place-items-center bg-black/75 p-4"><div className="relative rounded-2xl bg-white p-7 text-center text-slate-950"><button className="absolute right-3 top-3" onClick={()=>setQrOpen(false)}><X/></button><h2 className="mb-3 text-2xl font-black">학생 입장 QR 코드</h2><img className="mx-auto h-80 w-80 max-h-[60dvh] max-w-[60dvh]" alt="방 입장 QR 코드" src={`https://api.qrserver.com/v1/create-qr-code/?size=640x640&data=${encodeURIComponent(`${window.location.origin}/student?code=${code}`)}`}/><div className="mt-3 font-mono text-3xl font-black">{code}</div><p className="mt-2 text-sm text-slate-600">QR 스캔 후 닉네임 설정 화면으로 바로 이동합니다.</p></div></div>}
+        {qrOpen && <div className="fixed inset-0 z-[500] grid place-items-center bg-black/75 p-4"><div className="relative rounded-2xl bg-white p-7 text-center text-slate-950"><button className="absolute right-3 top-3" onClick={()=>setQrOpen(false)}><X/></button><h2 className="mb-3 text-2xl font-black">학생 입장 QR 코드</h2><img className="mx-auto h-80 w-80 max-h-[60dvh] max-w-[60dvh]" alt="방 입장 QR 코드" src={`https://api.qrserver.com/v1/create-qr-code/?size=640x640&data=${encodeURIComponent(appUrl(`/student/?code=${code}`))}`}/><div className="mt-3 font-mono text-3xl font-black">{code}</div><p className="mt-2 text-sm text-slate-600">QR 스캔 후 닉네임 설정 화면으로 바로 이동합니다.</p></div></div>}
       </>
     );
   return (
@@ -876,7 +880,7 @@ export default function TeacherBossBattlePage() {
         <div className="flex items-center justify-between">
           <Button
             className="bg-white text-black"
-            onClick={() => router.push(`/`)}
+            onClick={() => window.location.assign(appPath("/"))}
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             처음으로
@@ -984,7 +988,7 @@ export default function TeacherBossBattlePage() {
           </div>
         </section>
       </div>
-      {qrOpen && <div className="fixed inset-0 z-[300] grid place-items-center bg-black/75 p-4"><div className="relative rounded-2xl bg-white p-7 text-center text-slate-950"><button className="absolute right-3 top-3" onClick={()=>setQrOpen(false)}><X/></button><h2 className="mb-3 text-2xl font-black">학생 입장 QR 코드</h2><img className="mx-auto h-80 w-80" alt="방 입장 QR 코드" src={`https://api.qrserver.com/v1/create-qr-code/?size=640x640&data=${encodeURIComponent(`${window.location.origin}/student?code=${code}`)}`}/><div className="mt-3 font-mono text-3xl font-black">{code}</div><p className="mt-2 text-sm text-slate-600">QR 스캔 후 닉네임 설정 화면으로 바로 이동합니다.</p></div></div>}
+      {qrOpen && <div className="fixed inset-0 z-[300] grid place-items-center bg-black/75 p-4"><div className="relative rounded-2xl bg-white p-7 text-center text-slate-950"><button className="absolute right-3 top-3" onClick={()=>setQrOpen(false)}><X/></button><h2 className="mb-3 text-2xl font-black">학생 입장 QR 코드</h2><img className="mx-auto h-80 w-80" alt="방 입장 QR 코드" src={`https://api.qrserver.com/v1/create-qr-code/?size=640x640&data=${encodeURIComponent(appUrl(`/student/?code=${code}`))}`}/><div className="mt-3 font-mono text-3xl font-black">{code}</div><p className="mt-2 text-sm text-slate-600">QR 스캔 후 닉네임 설정 화면으로 바로 이동합니다.</p></div></div>}
     </main>
   );
 }

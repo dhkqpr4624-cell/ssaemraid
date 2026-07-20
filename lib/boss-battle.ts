@@ -356,10 +356,12 @@ export async function getBossBattleSession(
 export async function saveBossBattleSession(
   classCode: string,
   input: Partial<BossBattleSession>,
+  options: { requireRemote?: boolean; forceNew?: boolean } = {},
 ) {
-  const code = classCode.trim().toUpperCase(),
-    existing = await getBossBattleSession(code),
-    now = new Date().toISOString();
+  const code = classCode.trim().toUpperCase();
+  if (!code) throw new Error("방 코드가 비어 있습니다.");
+  const existing = options.forceNew ? null : await getBossBattleSession(code);
+  const now = new Date().toISOString();
   const merged: BossBattleSession = {
     id: existing?.id || crypto.randomUUID?.() || `${code}_${Date.now()}`,
     classCode: code,
@@ -399,7 +401,13 @@ export async function saveBossBattleSession(
       .select()
       .single();
     if (!error) return camel(data)!;
+    console.error("[Boss Battle] remote save failed:", error);
+    if (options.requireRemote) {
+      throw new Error(`Supabase 저장 실패: ${error.message}`);
+    }
     console.warn("[Boss Battle] save fallback:", error.message);
+  } else if (options.requireRemote) {
+    throw new Error("Supabase 환경 변수가 설정되지 않아 실시간 방을 만들 수 없습니다.");
   }
   if (typeof window !== "undefined")
     localStorage.setItem(key(code), JSON.stringify(merged));
