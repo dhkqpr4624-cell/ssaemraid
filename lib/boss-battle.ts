@@ -8,6 +8,24 @@ export const BOSS_NAME = "타락한 해태";
 export const MAX_BOSS_PLAYERS = 40;
 export const PLAYER_MAX_HP = 100;
 export const PLAYER_BASE_ATTACK = 10;
+
+async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`${label} 응답 시간이 초과되었습니다.`)), ms);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 export const RPS_TIME_SECONDS = 20;
 export const ANSWER_REVEAL_SECONDS = 7;
 export const RPS_REVEAL_SECONDS = 5;
@@ -336,16 +354,21 @@ export async function getBossBattleSession(
 ): Promise<BossBattleSession | null> {
   const code = classCode.trim().toUpperCase();
   if (enabled) {
-    const { data, error } = await supabase
-      .from("boss_battle_sessions")
-      .select("*")
-      .eq("class_code", code)
-      .neq("status", "ended")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (!error) return camel(data);
-    console.warn("[Boss Battle] session fallback:", error.message);
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const result = await withTimeout(
+          supabase.from("boss_battle_sessions").select("*").eq("class_code", code)
+            .neq("status", "ended").order("created_at", { ascending: false }).limit(1).maybeSingle(),
+          8000,
+          "Supabase 방 조회",
+        );
+        if (!result.error) return camel(result.data);
+        lastError = new Error(result.error.message);
+      } catch (error) { lastError = error; }
+      if (attempt === 0) await sleep(400);
+    }
+    throw lastError instanceof Error ? lastError : new Error("Supabase 방 조회에 실패했습니다.");
   }
   if (typeof window === "undefined") return null;
   const raw = localStorage.getItem(key(code));
@@ -393,22 +416,31 @@ export async function saveBossBattleSession(
       session_data: merged,
       updated_at: now,
     };
-    const { data, error } = await supabase
-      .from("boss_battle_sessions")
-      .upsert(row, { onConflict: "id" })
-      .select()
-      .single();
-    if (!error) return camel(data)!;
-    console.warn("[Boss Battle] save fallback:", error.message);
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const result = await withTimeout(
+          supabase.from("boss_battle_sessions").upsert(row, { onConflict: "id" }).select().single(),
+          10000,
+          "Supabase 방 저장",
+        );
+        if (!result.error) return camel(result.data)!;
+        lastError = new Error(result.error.message);
+      } catch (error) {
+        lastError = error;
+      }
+      if (attempt === 0) await sleep(700);
+    }
+    throw lastError instanceof Error ? lastError : new Error("Supabase 방 저장에 실패했습니다.");
   }
-  if (typeof window !== "undefined")
-    localStorage.setItem(key(code), JSON.stringify(merged));
+  if (typeof window !== "undefined") localStorage.setItem(key(code), JSON.stringify(merged));
   return merged;
 }
 export function subscribeBossBattleRoom(
   classCode: string,
   sessionId: string | undefined,
   onChange: () => void,
+  options: { participants?: boolean; answers?: boolean } = { participants: true, answers: true },
 ) {
   if (!enabled || typeof window === "undefined") return () => {};
   const code = classCode.trim().toUpperCase();
@@ -421,10 +453,11 @@ export function subscribeBossBattleRoom(
     .channel(`ssaemraid:${code}:${sessionId || "room"}:${Math.random()}`)
     .on("postgres_changes", { event: "*", schema: "public", table: "boss_battle_sessions", filter: `class_code=eq.${code}` }, notify)
     .on("postgres_changes", { event: "*", schema: "public", table: "raid_guests", filter: `room_code=eq.${code}` }, notify);
-  if (sessionId) {
-    channel
-      .on("postgres_changes", { event: "*", schema: "public", table: "boss_battle_participants", filter: `session_id=eq.${sessionId}` }, notify)
-      .on("postgres_changes", { event: "*", schema: "public", table: "boss_battle_answers", filter: `session_id=eq.${sessionId}` }, notify);
+  if (sessionId && options.participants) {
+    channel.on("postgres_changes", { event: "*", schema: "public", table: "boss_battle_participants", filter: `session_id=eq.${sessionId}` }, notify);
+  }
+  if (sessionId && options.answers) {
+    channel.on("postgres_changes", { event: "*", schema: "public", table: "boss_battle_answers", filter: `session_id=eq.${sessionId}` }, notify);
   }
   channel.subscribe();
   return () => {
@@ -609,33 +642,34 @@ export async function submitBossAnswer(
 ) {
   const now = new Date().toISOString();
   if (enabled) {
-    const { error } = await supabase.from("boss_battle_answers").upsert(
-      {
-        session_id: sessionId,
-        class_code: classCode.toUpperCase(),
-        round_index: roundIndex,
-        student_id: studentId,
-        attendance_number: attendanceNumber,
-        answer_data: answer,
-        is_correct: isCorrect,
-        submitted_at: now,
-      },
-      { onConflict: "session_id,round_index,student_id" },
-    );
-    if (!error) return true;
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        const result = await withTimeout(
+          supabase.from("boss_battle_answers").upsert(
+            {
+              session_id: sessionId, class_code: classCode.toUpperCase(),
+              round_index: roundIndex, student_id: studentId,
+              attendance_number: attendanceNumber, answer_data: answer,
+              is_correct: isCorrect, submitted_at: now,
+            },
+            { onConflict: "session_id,round_index,student_id" },
+          ).select("student_id").single(),
+          7000,
+          "답안 전송",
+        );
+        if (!result.error && result.data?.student_id === studentId) return true;
+        lastError = new Error(result.error?.message || "답안 저장을 확인하지 못했습니다.");
+      } catch (error) {
+        lastError = error;
+      }
+      if (attempt < 2) await sleep(250 * (attempt + 1));
+    }
+    throw lastError instanceof Error ? lastError : new Error("답안 전송에 실패했습니다.");
   }
   if (typeof window !== "undefined") {
-    const k = answerKey(classCode, sessionId, roundIndex),
-      c = JSON.parse(localStorage.getItem(k) || "{}");
-    c[studentId] = {
-      sessionId,
-      roundIndex,
-      studentId,
-      attendanceNumber,
-      answer,
-      isCorrect,
-      submittedAt: now,
-    };
+    const k = answerKey(classCode, sessionId, roundIndex), c = JSON.parse(localStorage.getItem(k) || "{}");
+    c[studentId] = { sessionId, roundIndex, studentId, attendanceNumber, answer, isCorrect, submittedAt: now };
     localStorage.setItem(k, JSON.stringify(c));
   }
   return true;
@@ -648,24 +682,25 @@ export async function submitBossRps(
   choice: RpsChoice,
 ) {
   if (enabled) {
-    // 답안 upsert 직후 Realtime/네트워크 경합으로 update가 0행에 적용되는 경우를
-    // 막기 위해 짧게 재시도합니다. 기존 answer_data를 덮지 않는 안전한 update입니다.
+    let lastError: unknown;
     for (let attempt = 0; attempt < 4; attempt += 1) {
-      const { data, error } = await supabase
-        .from("boss_battle_answers")
-        .update({ rps_choice: choice })
-        .eq("session_id", sessionId)
-        .eq("round_index", roundIndex)
-        .eq("student_id", studentId)
-        .select("student_id");
-      if (!error && (data?.length || 0) > 0) return true;
-      if (attempt < 3)
-        await new Promise((resolve) => window.setTimeout(resolve, 120 * (attempt + 1)));
+      try {
+        const result = await withTimeout(
+          supabase.from("boss_battle_answers").update({ rps_choice: choice })
+            .eq("session_id", sessionId).eq("round_index", roundIndex)
+            .eq("student_id", studentId).select("student_id"),
+          6000,
+          "가위바위보 전송",
+        );
+        if (!result.error && (result.data?.length || 0) > 0) return true;
+        lastError = new Error(result.error?.message || "저장할 답안 행을 찾지 못했습니다.");
+      } catch (error) { lastError = error; }
+      if (attempt < 3) await sleep(150 * (attempt + 1));
     }
+    throw lastError instanceof Error ? lastError : new Error("가위바위보 전송에 실패했습니다.");
   }
   if (typeof window !== "undefined") {
-    const k = answerKey(classCode, sessionId, roundIndex),
-      c = JSON.parse(localStorage.getItem(k) || "{}");
+    const k = answerKey(classCode, sessionId, roundIndex), c = JSON.parse(localStorage.getItem(k) || "{}");
     if (c[studentId]) c[studentId].rpsChoice = choice;
     localStorage.setItem(k, JSON.stringify(c));
   }
@@ -677,29 +712,27 @@ export async function getBossAnswers(
   roundIndex: number,
 ): Promise<BossBattleAnswer[]> {
   if (enabled) {
-    const { data, error } = await supabase
-      .from("boss_battle_answers")
-      .select("*")
-      .eq("session_id", sessionId)
-      .eq("round_index", roundIndex);
-    if (!error)
-      return (data || []).map((x: any) => ({
-        sessionId: x.session_id,
-        roundIndex: x.round_index,
-        studentId: x.student_id,
-        attendanceNumber: x.attendance_number,
-        answer: x.answer_data,
-        isCorrect: x.is_correct,
-        rpsChoice: x.rps_choice,
-        submittedAt: x.submitted_at,
-      }));
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const result = await withTimeout(
+          supabase.from("boss_battle_answers").select("*").eq("session_id", sessionId).eq("round_index", roundIndex),
+          6000,
+          "답안 조회",
+        );
+        if (!result.error) return (result.data || []).map((x: any) => ({
+          sessionId: x.session_id, roundIndex: x.round_index, studentId: x.student_id,
+          attendanceNumber: x.attendance_number, answer: x.answer_data,
+          isCorrect: x.is_correct, rpsChoice: x.rps_choice, submittedAt: x.submitted_at,
+        }));
+        lastError = new Error(result.error.message);
+      } catch (error) { lastError = error; }
+      if (attempt === 0) await sleep(200);
+    }
+    throw lastError instanceof Error ? lastError : new Error("답안 조회에 실패했습니다.");
   }
   if (typeof window === "undefined") return [];
-  return Object.values(
-    JSON.parse(
-      localStorage.getItem(answerKey(classCode, sessionId, roundIndex)) || "{}",
-    ),
-  ) as BossBattleAnswer[];
+  return Object.values(JSON.parse(localStorage.getItem(answerKey(classCode, sessionId, roundIndex)) || "{}")) as BossBattleAnswer[];
 }
 export async function removeBossParticipant(
   classCode: string,

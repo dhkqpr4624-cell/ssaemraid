@@ -246,6 +246,7 @@ export default function TeacherBossBattlePage() {
   }
 
   async function createRoom() {
+    if (busy) return;
     setBusy(true);
     try {
       const pool: QuizQuestion[] = preparedChosen.length ? preparedChosen : HAETAE_PREPARED_QUESTIONS;
@@ -279,7 +280,9 @@ export default function TeacherBossBattlePage() {
       });
       setSession(s);
       setParticipants([]);
-
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "알 수 없는 오류";
+      alert(`방을 만들지 못했습니다.\n\n${message}\n\n인터넷 연결을 확인하고 다시 시도해 주세요.`);
     } finally {
       setBusy(false);
     }
@@ -401,7 +404,7 @@ export default function TeacherBossBattlePage() {
       const active = participants.filter((p) => !p.state.knockedOut);
       const correctIds = new Set(
         answers
-          .filter((a) => isBossAnswerCorrect(q, a.answer))
+          .filter((a) => a.isCorrect === true || isBossAnswerCorrect(q, a.answer))
           .map((a) => a.studentId),
       );
       for (const p of participants) {
@@ -487,7 +490,7 @@ export default function TeacherBossBattlePage() {
       for (const p of participants) {
         const a = answers.find((x) => x.studentId === p.studentId);
         const q = currentBossQuestion(session);
-        if (!a || !q || !isBossAnswerCorrect(q, a.answer)) continue;
+        if (!a || !q || !(a.isCorrect === true || isBossAnswerCorrect(q, a.answer))) continue;
         // 정답 제출은 확인되었지만 네트워크 지연으로 가위바위보 값만 늦게 온 경우에도
         // 공격 자체가 사라지지 않도록 기본 배율(1배)을 보장합니다.
         // 제한 시간 안에 선택하지 못한 학생은 교사 진행 클라이언트가
@@ -586,8 +589,10 @@ export default function TeacherBossBattlePage() {
             session.currentRound,
           ),
           alive = participants.filter((p) => !p.state.knockedOut);
-        if (now >= end || (alive.length > 0 && answers.length >= alive.length))
-          await resolveQuestion();
+        const allAliveSubmitted = alive.length > 0 && alive.every((participant) =>
+          answers.some((answer) => answer.studentId === participant.studentId),
+        );
+        if (now >= end || allAliveSubmitted) await resolveQuestion();
         return;
       }
       if (session.status === "answer_reveal" && now >= end) {
@@ -629,7 +634,7 @@ export default function TeacherBossBattlePage() {
           ),
           q = currentBossQuestion(session);
         const eligible = q
-          ? answers.filter((a) => isBossAnswerCorrect(q, a.answer))
+          ? answers.filter((a) => a.isCorrect === true || isBossAnswerCorrect(q, a.answer))
           : [];
         if (
           now >= end ||
@@ -857,8 +862,11 @@ export default function TeacherBossBattlePage() {
         }
       }
     };
-    void run();
-    const timer = window.setInterval(() => void run(), 200);
+    void run().catch((error) => console.warn("[Boss Battle] phase sync retry:", error));
+    const timer = window.setInterval(
+      () => void run().catch((error) => console.warn("[Boss Battle] phase sync retry:", error)),
+      800,
+    );
     return () => {
       cancelled = true;
       window.clearInterval(timer);
@@ -872,18 +880,26 @@ export default function TeacherBossBattlePage() {
     participants.length,
   ]);
   async function togglePause() {
-    if (!session || session.status === "waiting") return;
-    const now = Date.now();
-    if (!session.paused) {
-      const remaining = Math.max(0, session.phaseEndsAt ? new Date(session.phaseEndsAt).getTime() - now : 0);
-      setSession(await saveBossBattleSession(code, { ...session, paused: true, pausedRemainingMs: remaining }));
-    } else {
-      const remaining = Math.max(0, session.pausedRemainingMs || 0);
-      setSession(await saveBossBattleSession(code, {
-        ...session, paused: false, pausedRemainingMs: 0,
-        phaseStartedAt: new Date().toISOString(),
-        phaseEndsAt: session.phaseEndsAt ? new Date(now + remaining).toISOString() : undefined,
-      }));
+    if (!session || session.status === "waiting" || busy) return;
+    setBusy(true);
+    try {
+      const now = Date.now();
+      if (!session.paused) {
+        const remaining = Math.max(0, session.phaseEndsAt ? new Date(session.phaseEndsAt).getTime() - now : 0);
+        setSession(await saveBossBattleSession(code, { ...session, paused: true, pausedRemainingMs: remaining }));
+      } else {
+        const remaining = Math.max(250, session.pausedRemainingMs || 0);
+        setSession(await saveBossBattleSession(code, {
+          ...session, paused: false, pausedRemainingMs: 0,
+          phaseStartedAt: new Date().toISOString(),
+          phaseEndsAt: session.phaseEndsAt ? new Date(now + remaining).toISOString() : undefined,
+        }));
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "알 수 없는 오류";
+      alert(`일시정지 상태를 변경하지 못했습니다.\n\n${message}\n\n인터넷 연결을 확인하고 다시 시도해 주세요.`);
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -1013,9 +1029,9 @@ export default function TeacherBossBattlePage() {
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button onClick={createRoom}>
-                <RefreshCw className="mr-2 h-4 w-4" />
-                방 만들기
+              <Button onClick={createRoom} disabled={busy}>
+                <RefreshCw className={`mr-2 h-4 w-4 ${busy ? "animate-spin" : ""}`} />
+                {busy ? "방 만드는 중…" : "방 만들기"}
               </Button>
               {session && <div className="rounded bg-slate-900 px-4 py-2 font-mono text-xl font-black text-white">방 코드 {code}</div>}
               <Button variant="outline" onClick={()=>setQrOpen(true)} disabled={!session} className="text-black"><QrCode className="mr-2 h-4 w-4"/>QR코드 보기</Button>

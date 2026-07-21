@@ -124,7 +124,12 @@ export default function StudentBossBattlePage() {
     pollNowRef.current = () => { void poll(); };
     beat();
     poll();
-    const unsubscribe = subscribeBossBattleRoom(code, session.id, () => pollNowRef.current());
+    const unsubscribe = subscribeBossBattleRoom(
+      code,
+      session.id,
+      () => pollNowRef.current(),
+      { participants: false, answers: false },
+    );
     // 40명이 한 번에 입장해도 주기 요청이 같은 밀리초에 몰리지 않도록
     // 브라우저마다 약간 다른 간격을 사용합니다.
     const h = setInterval(beat, 14000 + Math.floor(Math.random() * 3000)),
@@ -144,26 +149,38 @@ export default function StudentBossBattlePage() {
     router.push("/");
   }
   async function answer(a: any) {
-    if (!session || !me || session.paused) return;
+    if (!session || !me || session.paused || submitted) return;
     const q =
       session.selectedQuestions.find(
         (x) => x.id === session.roundPlan[session.currentRound]?.questionId,
       ) || session.selectedQuestions[session.currentRound];
-    await submitBossAnswer(
-      code,
-      session.id,
-      session.currentRound,
-      me.id,
-      String(me.attendanceNumber),
-      a,
-      isBossAnswerCorrect(q, a),
-    );
-    setSubmitted(true);
+    try {
+      await submitBossAnswer(
+        code,
+        session.id,
+        session.currentRound,
+        me.id,
+        String(me.attendanceNumber),
+        a,
+        isBossAnswerCorrect(q, a),
+      );
+      setSubmitted(true);
+      pollNowRef.current();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "알 수 없는 오류";
+      alert(`답안을 전송하지 못했습니다.\n\n${message}\n\n인터넷 연결을 확인한 뒤 다시 제출해 주세요.`);
+    }
   }
   async function rps(c: RpsChoice) {
     if (!session || !me || session.paused) return;
-    await submitBossRps(code, session.id, session.currentRound, me.id, c);
-    setCurrentAnswer((v) => (v ? { ...v, rpsChoice: c } : v));
+    try {
+      await submitBossRps(code, session.id, session.currentRound, me.id, c);
+      setCurrentAnswer((v) => (v ? { ...v, rpsChoice: c } : v));
+      pollNowRef.current();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "알 수 없는 오류";
+      alert(`가위바위보 선택을 전송하지 못했습니다.\n\n${message}`);
+    }
   }
   const selectedBoss = getBossById(session?.bossId),
     joined = participants
