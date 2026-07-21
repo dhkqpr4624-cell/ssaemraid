@@ -37,19 +37,24 @@ export function normalizeRaidRoomCode(value: string): string {
   const raw = String(value || "").trim().toUpperCase();
   const compact = raw.replace(/\s+/g, "");
   const prefixed = compact.match(/^([ABC])-?([A-Z2-9]{5})$/);
-  if (prefixed) return `${prefixed[1]}-${prefixed[2]}`;
-  // 기존 6자리 방 코드는 서버 1에서 계속 찾습니다.
-  return compact.replace(/[^A-Z0-9]/g, "").slice(0, 6);
+  // 3서버 전환 이후에는 A-/B-/C- 접두사가 있는 새 형식만 허용합니다.
+  return prefixed ? `${prefixed[1]}-${prefixed[2]}` : "";
 }
 
 export function getShardIdForRoom(roomCode: string): SupabaseShardId {
   const normalized = normalizeRaidRoomCode(roomCode);
   const match = normalized.match(/^([ABC])-/);
-  return match ? PREFIX_SHARD[match[1]] : 1;
+  if (!match) throw new Error("유효하지 않은 방 코드입니다. A-XXXXX, B-XXXXX, C-XXXXX 형식으로 입력해주세요.");
+  return PREFIX_SHARD[match[1]];
 }
 
 export function getShardInfoForRoom(roomCode: string) {
-  const id = getShardIdForRoom(roomCode);
+  const normalized = normalizeRaidRoomCode(roomCode);
+  const match = normalized.match(/^([ABC])-/);
+  if (!match) {
+    return { id: 1 as SupabaseShardId, label: "INVALID ROOM", prefix: "?", projectRef: "invalid-room-code", configured: false };
+  }
+  const id = PREFIX_SHARD[match[1]];
   const config = configFor(id);
   let projectRef = "not-configured";
   try {
@@ -87,14 +92,24 @@ export function getSupabaseForRoom(roomCode: string): SupabaseClient {
   return client;
 }
 
-export function createShardedRoomCode(): string {
-  const configured = configs.filter((config) => config.url && config.key);
-  const pool = configured.length > 0 ? configured : [configs[0]];
-  // 중앙 디렉터리 없이도 여러 교사 기기에서 자연스럽게 분산되도록 무작위 선택합니다.
-  const selected = pool[Math.floor(Math.random() * pool.length)];
+export function createRoomCodeForShard(id: SupabaseShardId): string {
   const chars = "DEFGHJKLMNPQRSTUVWXYZ23456789";
   const body = Array.from({ length: 5 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
-  return `${SHARD_PREFIX[selected.id]}-${body}`;
+  return `${SHARD_PREFIX[id]}-${body}`;
+}
+
+export async function requestLeastLoadedRoomCode(): Promise<{ roomCode: string; shardId: SupabaseShardId; activeRooms: Record<string, number | null> }> {
+  const response = await fetch("/api/boss-battle/select-server", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    cache: "no-store",
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok || !payload?.roomCode) {
+    throw new Error(payload?.error || "사용 가능한 서버를 찾지 못했습니다.");
+  }
+  console.info(`[SchoolRaid Load Balancer] ${payload.roomCode} -> SERVER ${payload.shardId}`, payload.activeRooms);
+  return payload;
 }
 
 export function getConfiguredShardSummary() {

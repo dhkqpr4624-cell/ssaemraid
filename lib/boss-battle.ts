@@ -473,6 +473,45 @@ export function subscribeBossBattleRoom(
   };
 }
 
+
+export async function touchBossBattleSession(classCode: string) {
+  const code = normalizeRaidRoomCode(classCode);
+  if (!code) return false;
+  const supabase = getSupabaseForRoom(code);
+  if (!isShardConfigured(code)) return false;
+  const session = await getBossBattleSession(code);
+  if (!session?.id) return false;
+  const { error } = await supabase.rpc("ssaemraid_touch_room_lease", {
+    p_class_code: code,
+    p_session_id: session.id,
+  });
+  if (error) {
+    console.warn("[Boss Battle] teacher heartbeat failed:", error.message);
+    return false;
+  }
+  return true;
+}
+
+export async function requestBossBattleRoomCleanup(classCode: string) {
+  const code = normalizeRaidRoomCode(classCode);
+  if (!code) return false;
+  const response = await fetch("/api/boss-battle/cleanup", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ roomCode: code }),
+    keepalive: true,
+  });
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(text || "방 정리에 실패했습니다.");
+  }
+  if (typeof window !== "undefined") {
+    localStorage.removeItem(key(code));
+    localStorage.removeItem(`ssaemraid_guests_${code}`);
+  }
+  return true;
+}
+
 export async function endBossBattleSession(
   classCode: string,
   session: BossBattleSession,

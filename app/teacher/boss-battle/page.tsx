@@ -31,6 +31,8 @@ import {
   buildRoundPlan,
   calculateBossMaxHp,
   chooseBossAttack,
+  requestBossBattleRoomCleanup,
+  touchBossBattleSession,
   bossAttackDamage,
   currentBossQuestion,
   endBossBattleSession,
@@ -77,7 +79,8 @@ export default function TeacherBossBattlePage() {
   const resolving = useRef(false),
     phaseTimerBusy = useRef(false),
     participantCountRef = useRef(0),
-    hpScalingBusy = useRef(false);
+    hpScalingBusy = useRef(false),
+    cleanupSentRef = useRef(false);
   const scaledBossDamage = (attack: any, current: BossBattleSession) => {
     const defenseCount = Math.max(
       1,
@@ -108,6 +111,36 @@ export default function TeacherBossBattlePage() {
       }
     });
   }, [code]);
+
+  // 교사 탭이 살아 있는 동안 별도 room lease 테이블만 갱신합니다. 게임 세션 Realtime에는
+  // 영향을 주지 않으며, heartbeat가 멈추면 3분 정리 작업이 남은 방을 자동 삭제합니다.
+  useEffect(() => {
+    if (!session?.id || !code) return;
+    cleanupSentRef.current = false;
+    const beat = () => { void touchBossBattleSession(code); };
+    beat();
+    const timer = window.setInterval(beat, 45000);
+    return () => window.clearInterval(timer);
+  }, [code, session?.id]);
+
+  // 브라우저/탭 닫기 시 삭제 API를 최대한 전달합니다. 브라우저가 요청을 버리는
+  // 극히 일부 경우는 위 heartbeat + 3분 cron 정리가 처리합니다.
+  useEffect(() => {
+    if (!session?.id || !code) return;
+    const sendCleanupBeacon = () => {
+      if (cleanupSentRef.current) return;
+      cleanupSentRef.current = true;
+      const payload = new Blob([JSON.stringify({ roomCode: code })], { type: "application/json" });
+      navigator.sendBeacon("/api/boss-battle/cleanup", payload);
+    };
+    window.addEventListener("beforeunload", sendCleanupBeacon);
+    window.addEventListener("pagehide", sendCleanupBeacon);
+    return () => {
+      window.removeEventListener("beforeunload", sendCleanupBeacon);
+      window.removeEventListener("pagehide", sendCleanupBeacon);
+    };
+  }, [code, session?.id]);
+
   useEffect(() => {
     if (!session?.id) return;
     const run = async () => {
@@ -349,6 +382,21 @@ export default function TeacherBossBattlePage() {
       }),
     );
   }
+  async function leaveToHome() {
+    if (session?.id) {
+      try {
+        cleanupSentRef.current = true;
+        await requestBossBattleRoomCleanup(code);
+      } catch (error) {
+        cleanupSentRef.current = false;
+        console.error("[SchoolRaid Cleanup] explicit leave failed", error);
+        alert("방 정리에 실패했습니다. 잠시 후 다시 시도해주세요.");
+        return;
+      }
+    }
+    router.push("/");
+  }
+
   async function finish() {
     if (!session) return;
     if (["defeated", "escaped", "wiped"].includes(session.status)) {
@@ -1009,7 +1057,7 @@ export default function TeacherBossBattlePage() {
         <div className="flex items-center justify-between">
           <Button
             className="bg-white text-black"
-            onClick={() => router.push(`/`)}
+            onClick={() => void leaveToHome()}
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             처음으로
