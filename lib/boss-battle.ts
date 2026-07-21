@@ -440,7 +440,7 @@ export function subscribeBossBattleRoom(
   classCode: string,
   sessionId: string | undefined,
   onChange: () => void,
-  options: { participants?: boolean; answers?: boolean } = { participants: true, answers: true },
+  options: { participants?: boolean; answers?: boolean; guests?: boolean } = { participants: true, answers: true, guests: true },
 ) {
   if (!enabled || typeof window === "undefined") return () => {};
   const code = classCode.trim().toUpperCase();
@@ -451,8 +451,10 @@ export function subscribeBossBattleRoom(
   };
   const channel = supabase
     .channel(`ssaemraid:${code}:${sessionId || "room"}:${Math.random()}`)
-    .on("postgres_changes", { event: "*", schema: "public", table: "boss_battle_sessions", filter: `class_code=eq.${code}` }, notify)
-    .on("postgres_changes", { event: "*", schema: "public", table: "raid_guests", filter: `room_code=eq.${code}` }, notify);
+    .on("postgres_changes", { event: "*", schema: "public", table: "boss_battle_sessions", filter: `class_code=eq.${code}` }, notify);
+  if (options.guests !== false) {
+    channel.on("postgres_changes", { event: "*", schema: "public", table: "raid_guests", filter: `room_code=eq.${code}` }, notify);
+  }
   if (sessionId && options.participants) {
     channel.on("postgres_changes", { event: "*", schema: "public", table: "boss_battle_participants", filter: `session_id=eq.${sessionId}` }, notify);
   }

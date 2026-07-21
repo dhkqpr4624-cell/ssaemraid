@@ -110,14 +110,13 @@ export default function TeacherBossBattlePage() {
   useEffect(() => {
     if (!session?.id) return;
     const run = async () => {
-      const [ss, ps, guests] = await Promise.all([
+      const [ss, ps] = await Promise.all([
         getBossBattleSession(code),
         getBossParticipants(
           code,
           session.id,
           !["defeated", "escaped", "wiped", "result_ready"].includes(session.status),
         ),
-        listRaidGuests(code),
       ]);
       if (ss) {
         let nextSession = ss;
@@ -139,12 +138,28 @@ export default function TeacherBossBattlePage() {
         setSession((prev) => (isNewerBossSession(prev, nextSession) ? nextSession : prev));
       }
       setParticipants(ps);
-      setStudents(guests.map(raidGuestToStudent));
     };
     run();
-    const unsubscribe = subscribeBossBattleRoom(code, session.id, () => { void run(); });
-    const t = setInterval(run, 2500);
+    const unsubscribe = subscribeBossBattleRoom(code, session.id, () => { void run(); }, { guests: false });
+    const t = setInterval(run, 4000);
     return () => { unsubscribe(); clearInterval(t); };
+  }, [code, session?.id]);
+
+  useEffect(() => {
+    if (!session?.id) return;
+    let cancelled = false;
+    const refreshGuests = async () => {
+      const guests = await listRaidGuests(code, true);
+      if (!cancelled) setStudents(guests.map(raidGuestToStudent));
+    };
+    void refreshGuests();
+    const unsubscribe = subscribeBossBattleRoom(
+      code,
+      undefined,
+      () => { void refreshGuests(); },
+      { participants: false, answers: false, guests: true },
+    );
+    return () => { cancelled = true; unsubscribe(); };
   }, [code, session?.id]);
 
   useEffect(() => {

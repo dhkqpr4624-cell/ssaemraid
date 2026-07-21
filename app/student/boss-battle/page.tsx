@@ -46,6 +46,7 @@ export default function StudentBossBattlePage() {
     [error, setError] = useState("");
   const pollSequence = useRef(0);
   const pollInFlight = useRef(false);
+  const answerHydratedRound = useRef<number | null>(null);
   const pollNowRef = useRef<() => void>(() => {});
   useEffect(() => {
     if (!saved || !code) {
@@ -65,6 +66,7 @@ export default function StudentBossBattlePage() {
   }, [session?.avatarCustomizationEnabled]);
   useEffect(() => {
     pollSequence.current += 1;
+    answerHydratedRound.current = null;
     setSubmitted(false);
     setCurrentAnswer(undefined);
   }, [session?.currentRound]);
@@ -110,13 +112,14 @@ export default function StudentBossBattlePage() {
         latestParticipants = await getBossParticipants(code, latest.id, true);
       }
       setParticipants(latestParticipants);
-      const guests = await listRaidGuests(code);
-      setStudents(guests.map(raidGuestToStudent));
-      const ans = await getBossAnswers(code, latest.id, latest.currentRound);
-      if (requestId !== pollSequence.current) return;
-      const mineAnswer = ans.find((a) => a.studentId === me.id && a.roundIndex === latest.currentRound);
-      setCurrentAnswer(mineAnswer);
-      setSubmitted(Boolean(mineAnswer));
+      if (answerHydratedRound.current !== latest.currentRound) {
+        const ans = await getBossAnswers(code, latest.id, latest.currentRound);
+        if (requestId !== pollSequence.current) return;
+        const mineAnswer = ans.find((a) => a.studentId === me.id && a.roundIndex === latest.currentRound);
+        setCurrentAnswer(mineAnswer);
+        setSubmitted(Boolean(mineAnswer));
+        answerHydratedRound.current = latest.currentRound;
+      }
       } finally {
         pollInFlight.current = false;
       }
@@ -128,7 +131,7 @@ export default function StudentBossBattlePage() {
       code,
       session.id,
       () => pollNowRef.current(),
-      { participants: false, answers: false },
+      { participants: false, answers: false, guests: false },
     );
     // 40명이 한 번에 입장해도 주기 요청이 같은 밀리초에 몰리지 않도록
     // 브라우저마다 약간 다른 간격을 사용합니다.
@@ -141,6 +144,21 @@ export default function StudentBossBattlePage() {
       clearInterval(p);
     };
   }, [session?.id, me?.id]);
+  useEffect(() => {
+    if (!session?.id) return;
+    let cancelled = false;
+    const refreshGuests = async () => {
+      const guests = await listRaidGuests(code, true);
+      if (!cancelled) setStudents(guests.map(raidGuestToStudent));
+    };
+    const unsubscribe = subscribeBossBattleRoom(
+      code,
+      undefined,
+      () => { void refreshGuests(); },
+      { participants: false, answers: false, guests: true },
+    );
+    return () => { cancelled = true; unsubscribe(); };
+  }, [code, session?.id]);
   async function leave() {
     // 전투가 시작된 뒤에는 결과 기록 보존을 위해 참가자 행을 삭제하지 않습니다.
     // 새 방 생성 시 교사가 기존 참가자 데이터를 일괄 정리합니다.
