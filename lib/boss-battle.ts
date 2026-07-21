@@ -358,7 +358,7 @@ export async function getBossBattleSession(
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
         const result = await withTimeout(
-          supabase.from("boss_battle_sessions").select("*").eq("class_code", code)
+          supabase.from("boss_battle_sessions").select("id,class_code,status,boss_id,boss_name,question_count,time_limit_seconds,boss_max_hp,boss_hp,session_data,created_at,updated_at").eq("class_code", code)
             .neq("status", "ended").order("created_at", { ascending: false }).limit(1).maybeSingle(),
           8000,
           "Supabase 방 조회",
@@ -447,7 +447,7 @@ export function subscribeBossBattleRoom(
   let timer: ReturnType<typeof setTimeout> | null = null;
   const notify = () => {
     if (timer) clearTimeout(timer);
-    timer = setTimeout(onChange, 80);
+    timer = setTimeout(onChange, 250);
   };
   const channel = supabase
     .channel(`ssaemraid:${code}:${sessionId || "room"}:${Math.random()}`)

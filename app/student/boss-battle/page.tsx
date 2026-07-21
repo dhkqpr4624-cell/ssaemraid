@@ -135,13 +135,26 @@ export default function StudentBossBattlePage() {
     );
     // 40명이 한 번에 입장해도 주기 요청이 같은 밀리초에 몰리지 않도록
     // 브라우저마다 약간 다른 간격을 사용합니다.
-    const h = setInterval(beat, 14000 + Math.floor(Math.random() * 3000)),
-      // Realtime이 끊겼을 때를 위한 저빈도 안전망입니다.
-      p = setInterval(poll, 3000 + Math.floor(Math.random() * 1200));
+    const h = setInterval(beat, 35000 + Math.floor(Math.random() * 10000)),
+      // Realtime이 끊겼을 때만 복구하기 위한 저빈도 안전망입니다.
+      // 정상 상황의 화면 전환은 session Realtime 이벤트가 즉시 처리합니다.
+      p = setInterval(poll, 20000 + Math.floor(Math.random() * 5000));
+    const recover = () => {
+      if (document.visibilityState === "visible" && navigator.onLine) {
+        void beat();
+        void poll();
+      }
+    };
+    window.addEventListener("focus", recover);
+    window.addEventListener("online", recover);
+    document.addEventListener("visibilitychange", recover);
     return () => {
       unsubscribe();
       clearInterval(h);
       clearInterval(p);
+      window.removeEventListener("focus", recover);
+      window.removeEventListener("online", recover);
+      document.removeEventListener("visibilitychange", recover);
     };
   }, [session?.id, me?.id]);
   useEffect(() => {

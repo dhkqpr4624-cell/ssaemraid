@@ -140,9 +140,28 @@ export default function TeacherBossBattlePage() {
       setParticipants(ps);
     };
     run();
-    const unsubscribe = subscribeBossBattleRoom(code, session.id, () => { void run(); }, { guests: false });
-    const t = setInterval(run, 4000);
-    return () => { unsubscribe(); clearInterval(t); };
+    const unsubscribe = subscribeBossBattleRoom(
+      code,
+      session.id,
+      () => { void run(); },
+      // 참가자 heartbeat와 학생 답안마다 전체 참가자 목록을 다시 읽지 않습니다.
+      // 교사가 저장하는 session 변화만 즉시 받고, 참가자 목록은 저빈도 안전 폴링으로 보정합니다.
+      { participants: false, answers: false, guests: false },
+    );
+    const t = setInterval(run, 10000);
+    const recover = () => {
+      if (document.visibilityState === "visible" && navigator.onLine) void run();
+    };
+    window.addEventListener("focus", recover);
+    window.addEventListener("online", recover);
+    document.addEventListener("visibilitychange", recover);
+    return () => {
+      unsubscribe();
+      clearInterval(t);
+      window.removeEventListener("focus", recover);
+      window.removeEventListener("online", recover);
+      document.removeEventListener("visibilitychange", recover);
+    };
   }, [code, session?.id]);
 
   useEffect(() => {
