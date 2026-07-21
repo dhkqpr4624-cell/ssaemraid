@@ -1,17 +1,17 @@
-import { supabase } from './supabase';
+import { getSupabaseForRoom, isShardConfigured, normalizeRaidRoomCode } from './supabase-shards';
 import type { AvatarState, Item, Student } from './types';
 
 export interface RaidGuest { id:string; roomCode:string; nickname:string; joinOrder:number; avatarState:AvatarState; items:Item[]; createdAt:string; updatedAt:string }
-const enabled=!!process.env.NEXT_PUBLIC_SUPABASE_URL;
-const key=(code:string)=>`ssaemraid_guests_${code.toUpperCase()}`;
+const key=(code:string)=>`ssaemraid_guests_${normalizeRaidRoomCode(code)}`;
 const guestCache=new Map<string,{at:number,data:RaidGuest[]}>();
 const guestInflight=new Map<string,Promise<RaidGuest[]>>();
 const GUEST_CACHE_MS=10000;
-export function invalidateRaidGuestCache(roomCode:string){guestCache.delete(roomCode.toUpperCase());}
+export function invalidateRaidGuestCache(roomCode:string){guestCache.delete(normalizeRaidRoomCode(roomCode));}
 const toStudent=(g:RaidGuest):Student=>({id:g.id,classId:g.roomCode,attendanceNumber:g.joinOrder,nickname:g.nickname,score:0,coins:0,items:g.items||[],avatarId:'raid-random',avatarState:g.avatarState,roomDecorations:[]});
 export function raidGuestToStudent(g:RaidGuest){return toStudent(g)}
 export async function listRaidGuests(roomCode:string,force=false):Promise<RaidGuest[]>{
- const code=roomCode.toUpperCase(), now=Date.now(), cached=guestCache.get(code);
+ const code=normalizeRaidRoomCode(roomCode), now=Date.now(), cached=guestCache.get(code);
+ const supabase=getSupabaseForRoom(code), enabled=isShardConfigured(code);
  if(!force&&cached&&now-cached.at<GUEST_CACHE_MS)return cached.data;
  const inflight=guestInflight.get(code); if(!force&&inflight)return inflight;
  const request=(async()=>{
@@ -29,7 +29,8 @@ export async function findRaidGuestByNickname(roomCode:string,nickname:string):P
  return guests.slice().reverse().find(g=>g.nickname.trim().toLocaleLowerCase()===target)||null;
 }
 export async function createRaidGuest(roomCode:string,nickname:string,avatarState:AvatarState,items:Item[]):Promise<RaidGuest>{
- const code=roomCode.toUpperCase(), cleanNickname=nickname.trim(); invalidateRaidGuestCache(code);
+ const code=normalizeRaidRoomCode(roomCode), cleanNickname=nickname.trim(); invalidateRaidGuestCache(code);
+ const supabase=getSupabaseForRoom(code), enabled=isShardConfigured(code);
  if(enabled){
   // 입장 순번 계산과 40명 제한을 DB 트랜잭션 안에서 처리하여
   // 여러 학생이 동시에 들어와도 같은 join_order가 생기지 않게 합니다.
@@ -47,7 +48,7 @@ export async function createRaidGuest(roomCode:string,nickname:string,avatarStat
  const g:RaidGuest={id:crypto.randomUUID(),roomCode:code,nickname:cleanNickname,joinOrder:(existing.reduce((m,x)=>Math.max(m,x.joinOrder),0)+1),avatarState,items,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
  localStorage.setItem(key(code),JSON.stringify([...existing,g])); return g;
 }
-export async function updateRaidGuest(g:RaidGuest){invalidateRaidGuestCache(g.roomCode);g.updatedAt=new Date().toISOString(); if(enabled){const {error}=await supabase.from('raid_guests').update({nickname:g.nickname,avatar_state:g.avatarState,items:g.items,updated_at:g.updatedAt}).eq('id',g.id); if(error)throw new Error(error.message); return;} const all=await listRaidGuests(g.roomCode); localStorage.setItem(key(g.roomCode),JSON.stringify(all.map(x=>x.id===g.id?g:x)));}
-export async function deleteRaidGuest(id:string,roomCode:string){invalidateRaidGuestCache(roomCode);if(enabled){await supabase.from('raid_guests').delete().eq('id',id);return;} const all=await listRaidGuests(roomCode);localStorage.setItem(key(roomCode),JSON.stringify(all.filter(x=>x.id!==id)));}
+export async function updateRaidGuest(g:RaidGuest){invalidateRaidGuestCache(g.roomCode);g.updatedAt=new Date().toISOString(); const supabase=getSupabaseForRoom(g.roomCode), enabled=isShardConfigured(g.roomCode); if(enabled){const {error}=await supabase.from('raid_guests').update({nickname:g.nickname,avatar_state:g.avatarState,items:g.items,updated_at:g.updatedAt}).eq('id',g.id); if(error)throw new Error(error.message); return;} const all=await listRaidGuests(g.roomCode); localStorage.setItem(key(g.roomCode),JSON.stringify(all.map(x=>x.id===g.id?g:x)));}
+export async function deleteRaidGuest(id:string,roomCode:string){invalidateRaidGuestCache(roomCode);const supabase=getSupabaseForRoom(roomCode), enabled=isShardConfigured(roomCode);if(enabled){await supabase.from('raid_guests').delete().eq('id',id);return;} const all=await listRaidGuests(roomCode);localStorage.setItem(key(roomCode),JSON.stringify(all.filter(x=>x.id!==id)));}
 export function saveRaidGuestSession(g:RaidGuest){sessionStorage.setItem('ssaemraid_guest',JSON.stringify(g));}
 export function getRaidGuestSession():RaidGuest|null{if(typeof window==='undefined')return null;try{return JSON.parse(sessionStorage.getItem('ssaemraid_guest')||'null')}catch{return null}}

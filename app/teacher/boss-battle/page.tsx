@@ -11,6 +11,7 @@ import { listRaidGuests, raidGuestToStudent } from "@/lib/raid-guests";
 import type { Quiz, QuizQuestion, Student } from "@/lib/types";
 import { BossWaitingParticipant } from "@/components/boss-battle/BossWaitingParticipant";
 import { BossWaitingRoomBgm } from "@/components/boss-battle/BossWaitingRoomBgm";
+import { SupabaseShardBadge } from "@/components/debug/SupabaseShardBadge";
 import { BossBattleArena } from "@/components/boss-battle/BossBattleArena";
 import { ArrowLeft, Play, RefreshCw, StopCircle, Users, QrCode, X, Pause, PlayCircle } from "lucide-react";
 import { getBossById } from "@/lib/boss-catalog";
@@ -980,6 +981,7 @@ export default function TeacherBossBattlePage() {
   if (session && session.status !== "waiting")
     return (
       <>
+        <SupabaseShardBadge roomCode={code} />
         <div className="fixed left-3 top-3 z-[120]">
           <Button variant="destructive" onClick={finish}>
             <StopCircle className="mr-2 h-4 w-4" />
@@ -1002,6 +1004,7 @@ export default function TeacherBossBattlePage() {
     );
   return (
     <main className="min-h-screen bg-slate-950 p-3 text-white md:p-6">
+      <SupabaseShardBadge roomCode={code} />
       <div className="mx-auto max-w-7xl space-y-4">
         <div className="flex items-center justify-between">
           <Button

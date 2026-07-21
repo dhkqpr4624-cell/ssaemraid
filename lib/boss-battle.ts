@@ -1,8 +1,7 @@
-import { supabase } from "./supabase";
+import { getSupabaseForRoom, isShardConfigured, normalizeRaidRoomCode } from "./supabase-shards";
 import type { QuizQuestion, Student } from "./types";
 import { REWARD_FOLDER_ITEMS } from "./reward-folder-items";
 
-const enabled = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 export const BOSS_BATTLE_ID = "corrupted-haetae-social-5-1-u3";
 export const BOSS_NAME = "타락한 해태";
 export const MAX_BOSS_PLAYERS = 40;
@@ -352,7 +351,9 @@ export function bossAttackDamage(kind?: BossAttackKind) {
 export async function getBossBattleSession(
   classCode: string,
 ): Promise<BossBattleSession | null> {
-  const code = classCode.trim().toUpperCase();
+  const code = normalizeRaidRoomCode(classCode);
+  const supabase = getSupabaseForRoom(code);
+  const enabled = isShardConfigured(code);
   if (enabled) {
     let lastError: unknown;
     for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -380,7 +381,7 @@ export async function saveBossBattleSession(
   classCode: string,
   input: Partial<BossBattleSession>,
 ) {
-  const code = classCode.trim().toUpperCase(),
+  const code = normalizeRaidRoomCode(classCode),
     existing = await getBossBattleSession(code),
     now = new Date().toISOString();
   const merged: BossBattleSession = {
@@ -402,6 +403,8 @@ export async function saveBossBattleSession(
     ...existing,
     ...input,
   };
+  const supabase = getSupabaseForRoom(code);
+  const enabled = isShardConfigured(code);
   if (enabled) {
     const row = {
       id: merged.id,
@@ -442,8 +445,10 @@ export function subscribeBossBattleRoom(
   onChange: () => void,
   options: { participants?: boolean; answers?: boolean; guests?: boolean } = { participants: true, answers: true, guests: true },
 ) {
+  const code = normalizeRaidRoomCode(classCode);
+  const supabase = getSupabaseForRoom(code);
+  const enabled = isShardConfigured(code);
   if (!enabled || typeof window === "undefined") return () => {};
-  const code = classCode.trim().toUpperCase();
   let timer: ReturnType<typeof setTimeout> | null = null;
   const notify = () => {
     if (timer) clearTimeout(timer);
@@ -486,8 +491,10 @@ export async function heartbeatBossParticipant(
   attendanceNumber: number,
   studentId: string,
 ) {
-  const code = classCode.trim().toUpperCase(),
+  const code = normalizeRaidRoomCode(classCode),
     now = new Date().toISOString();
+  const supabase = getSupabaseForRoom(code);
+  const enabled = isShardConfigured(code);
   if (enabled) {
     // 한 번의 RPC로 참가자 생성/heartbeat를 처리합니다. 기존 상태를 덮어쓰지 않아
     // 40명이 동시에 heartbeat를 보내도 SELECT+UPSERT 경쟁이 발생하지 않습니다.
@@ -518,8 +525,10 @@ export async function getBossParticipants(
   sessionId: string,
   activeOnly = true,
 ): Promise<BossBattleParticipant[]> {
-  const code = classCode.trim().toUpperCase(),
+  const code = normalizeRaidRoomCode(classCode),
     cutoff = new Date(Date.now() - 60000).toISOString();
+  const supabase = getSupabaseForRoom(code);
+  const enabled = isShardConfigured(code);
   if (enabled) {
     let query = supabase
       .from("boss_battle_participants")
@@ -570,8 +579,10 @@ export async function hasBossParticipant(
   sessionId: string,
   studentId: string,
 ): Promise<boolean> {
-  const code = classCode.trim().toUpperCase();
+  const code = normalizeRaidRoomCode(classCode);
   if (!sessionId || !studentId) return false;
+  const supabase = getSupabaseForRoom(code);
+  const enabled = isShardConfigured(code);
   if (enabled) {
     const { data, error } = await supabase
       .from("boss_battle_participants")
@@ -595,6 +606,8 @@ export async function updateBossParticipantState(
   studentId: string,
   state: Partial<BossParticipantState>,
 ) {
+  const supabase = getSupabaseForRoom(classCode);
+  const enabled = isShardConfigured(classCode);
   if (enabled) {
     const { error } = await supabase.rpc("ssaemraid_patch_participant_state", {
       p_session_id: sessionId,
@@ -643,6 +656,8 @@ export async function submitBossAnswer(
   isCorrect?: boolean,
 ) {
   const now = new Date().toISOString();
+  const supabase = getSupabaseForRoom(classCode);
+  const enabled = isShardConfigured(classCode);
   if (enabled) {
     let lastError: unknown;
     for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -650,7 +665,7 @@ export async function submitBossAnswer(
         const result = await withTimeout(
           supabase.from("boss_battle_answers").upsert(
             {
-              session_id: sessionId, class_code: classCode.toUpperCase(),
+              session_id: sessionId, class_code: normalizeRaidRoomCode(classCode),
               round_index: roundIndex, student_id: studentId,
               attendance_number: attendanceNumber, answer_data: answer,
               is_correct: isCorrect, submitted_at: now,
@@ -683,6 +698,8 @@ export async function submitBossRps(
   studentId: string,
   choice: RpsChoice,
 ) {
+  const supabase = getSupabaseForRoom(classCode);
+  const enabled = isShardConfigured(classCode);
   if (enabled) {
     let lastError: unknown;
     for (let attempt = 0; attempt < 4; attempt += 1) {
@@ -713,6 +730,8 @@ export async function getBossAnswers(
   sessionId: string,
   roundIndex: number,
 ): Promise<BossBattleAnswer[]> {
+  const supabase = getSupabaseForRoom(classCode);
+  const enabled = isShardConfigured(classCode);
   if (enabled) {
     let lastError: unknown;
     for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -741,6 +760,8 @@ export async function removeBossParticipant(
   sessionId: string,
   studentId: string,
 ) {
+  const supabase = getSupabaseForRoom(classCode);
+  const enabled = isShardConfigured(classCode);
   if (enabled) {
     const { error } = await supabase
       .from("boss_battle_participants")
@@ -761,6 +782,9 @@ export async function clearBossParticipants(
   sessionId: string,
   classCode?: string,
 ) {
+  const roomCode = classCode || "";
+  const supabase = getSupabaseForRoom(roomCode);
+  const enabled = isShardConfigured(roomCode);
   if (enabled)
     await supabase
       .from("boss_battle_participants")
@@ -795,6 +819,8 @@ export async function grantBossBattleReward(
   session: BossBattleSession,
   participants: BossBattleParticipant[],
 ) {
+  const supabase = getSupabaseForRoom(session.classCode);
+  const enabled = isShardConfigured(session.classCode);
   if (
     !enabled ||
     session.rewardGranted ||

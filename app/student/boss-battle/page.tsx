@@ -6,6 +6,7 @@ import { ArrowLeft, Users, Palette, X, Shuffle } from "lucide-react";
 import { BossWaitingParticipant } from "@/components/boss-battle/BossWaitingParticipant";
 import { BossWaitingRoomBgm } from "@/components/boss-battle/BossWaitingRoomBgm";
 import { BossBattleArena } from "@/components/boss-battle/BossBattleArena";
+import { SupabaseShardBadge } from "@/components/debug/SupabaseShardBadge";
 import { getRaidGuestSession, listRaidGuests, raidGuestToStudent, updateRaidGuest, saveRaidGuestSession, type RaidGuest } from "@/lib/raid-guests";
 import { RAID_AVATAR_ITEMS, RAID_AVATAR_COLORS, randomRaidAvatar } from "@/lib/raid-avatar";
 import { AvatarRenderer } from "@/components/avatar/AvatarRenderer";
@@ -231,7 +232,9 @@ export default function StudentBossBattlePage() {
     );
   if (session && session.status !== "waiting")
     return (
-      <BossBattleArena
+      <>
+        <SupabaseShardBadge roomCode={code} />
+        <BossBattleArena
         session={session}
         me={me}
         participant={mine}
@@ -243,9 +246,11 @@ export default function StudentBossBattlePage() {
         teacherParticipants={participants}
         onExit={() => router.push("/")}
       />
+      </>
     );
   return (
     <main className="min-h-screen bg-slate-950 p-3 text-white">
+      <SupabaseShardBadge roomCode={code} />
       <div className="mx-auto max-w-7xl">
         <div className="mb-3 flex items-center justify-between">
           <Button className="bg-white text-black" onClick={leave}>
