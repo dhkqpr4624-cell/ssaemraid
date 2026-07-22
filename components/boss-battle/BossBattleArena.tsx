@@ -15,7 +15,7 @@ import { BossSprite } from "./BossSprite";
 import { SpriteEffect } from "./SpriteEffect";
 import { BossQuestionPanel } from "./BossQuestionPanel";
 import { BossBattleBgm } from "./BossBattleBgm";
-import { Bug, Shield, Skull, Sword, Pause, PlayCircle, QrCode } from "lucide-react";
+import { Bug, Shield, Skull, Sword, Pause, PlayCircle, QrCode, Gift, X } from "lucide-react";
 import { applyBossMute, BOSS_MUTE_EVENT, getBossMuted, type BossAudioRole } from "@/lib/boss-audio";
 const attackAsset = (a?: BossAttackKind) =>
   a === "claw2"
@@ -68,7 +68,16 @@ export function BossBattleArena({
     [showRanking, setShowRanking] = useState(false),
     [muted, setMuted] = useState(false),
     [audioUnlocked, setAudioUnlocked] = useState(false),
+    [rewardOpen, setRewardOpen] = useState(false),
+    [rewardBusy, setRewardBusy] = useState(false),
+    [rewardInfo, setRewardInfo] = useState<any>(null),
+    [rewardError, setRewardError] = useState(""),
     [tabletStageScale, setTabletStageScale] = useState<number | null>(null);
+  async function openSsaemquestReward() {
+    setRewardOpen(true); setRewardError(""); if(rewardInfo)return; setRewardBusy(true);
+    try { const response=await fetch("/api/ssaemquest-reward",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({outcome:session.status,sourceKey:`${session.id}:${session.status}`})}); const result=await response.json(); if(!response.ok)throw new Error(result.error||"보상 코드를 만들지 못했습니다."); setRewardInfo(result); }
+    catch(error:any){setRewardError(error.message||"보상 코드를 만들지 못했습니다.");} finally{setRewardBusy(false);}
+  }
   useEffect(() => {
     if (isTeacher) {
       setTabletStageScale(null);
@@ -861,6 +870,7 @@ export function BossBattleArena({
               <div className="mb-3 text-center text-2xl font-black text-amber-200">
                 TOP 3 피해량
               </div>
+              {(session.status === "defeated" || session.status === "escaped") && <Button className="mb-4 w-full bg-amber-400 font-black text-slate-950 hover:bg-amber-300" onClick={()=>void openSsaemquestReward()}><Gift className="mr-2 h-5 w-5"/>쌤퀘스트에서 보상 받기</Button>}
               <div className="flex items-end justify-center gap-2">
                 {[1, 0, 2].map((rankIndex) => {
                   const rp = ranking[rankIndex];
@@ -972,6 +982,7 @@ export function BossBattleArena({
               </div>
             </div>
           )}
+          {rewardOpen && isTeacher && <div className="absolute inset-0 z-[110] grid place-items-center bg-black/75 p-4"><div className="relative w-full max-w-md rounded-2xl bg-white p-6 text-center text-slate-950"><button className="absolute right-3 top-3" onClick={()=>setRewardOpen(false)}><X/></button><h2 className="mb-3 text-2xl font-black">쌤퀘스트 보상</h2>{rewardBusy&&<p>보상 코드를 만드는 중...</p>}{rewardError&&<div className="space-y-3 text-red-600"><p>{rewardError}</p><Button onClick={()=>{setRewardInfo(null);void openSsaemquestReward();}}>다시 시도</Button></div>}{rewardInfo&&<><img className="mx-auto h-52 w-52" alt="보상 QR 코드" src={`https://api.qrserver.com/v1/create-qr-code/?size=640x640&data=${encodeURIComponent(rewardInfo.claimUrl)}`}/><div className="mt-3 text-xl font-black">{rewardInfo.reward.item_name}</div><div className="mt-2 font-mono text-4xl font-black tracking-widest">{rewardInfo.reward.code}</div><p className="mt-2 text-sm text-slate-600">QR 코드를 찍거나 쌤퀘스트에서 보상 코드를 입력하세요.</p></>}</div></div>}
         </div>
       )}
       </div>
