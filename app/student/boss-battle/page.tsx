@@ -6,6 +6,7 @@ import { ArrowLeft, Users, Palette, X, Shuffle } from "lucide-react";
 import { BossWaitingParticipant } from "@/components/boss-battle/BossWaitingParticipant";
 import { BossWaitingRoomBgm } from "@/components/boss-battle/BossWaitingRoomBgm";
 import { BossBattleArena } from "@/components/boss-battle/BossBattleArena";
+import { SupabaseShardBadge } from "@/components/debug/SupabaseShardBadge";
 import { getRaidGuestSession, listRaidGuests, raidGuestToStudent, updateRaidGuest, saveRaidGuestSession, type RaidGuest } from "@/lib/raid-guests";
 import { RAID_AVATAR_ITEMS, RAID_AVATAR_COLORS, randomRaidAvatar } from "@/lib/raid-avatar";
 import { AvatarRenderer } from "@/components/avatar/AvatarRenderer";
@@ -46,6 +47,7 @@ export default function StudentBossBattlePage() {
     [error, setError] = useState("");
   const pollSequence = useRef(0);
   const pollInFlight = useRef(false);
+  const answerHydratedRound = useRef<number | null>(null);
   const pollNowRef = useRef<() => void>(() => {});
   useEffect(() => {
     if (!saved || !code) {
@@ -65,6 +67,7 @@ export default function StudentBossBattlePage() {
   }, [session?.avatarCustomizationEnabled]);
   useEffect(() => {
     pollSequence.current += 1;
+    answerHydratedRound.current = null;
     setSubmitted(false);
     setCurrentAnswer(undefined);
   }, [session?.currentRound]);
@@ -110,13 +113,17 @@ export default function StudentBossBattlePage() {
         latestParticipants = await getBossParticipants(code, latest.id, true);
       }
       setParticipants(latestParticipants);
-      const guests = await listRaidGuests(code);
-      setStudents(guests.map(raidGuestToStudent));
-      const ans = await getBossAnswers(code, latest.id, latest.currentRound);
-      if (requestId !== pollSequence.current) return;
-      const mineAnswer = ans.find((a) => a.studentId === me.id && a.roundIndex === latest.currentRound);
-      setCurrentAnswer(mineAnswer);
-      setSubmitted(Boolean(mineAnswer));
+      if (answerHydratedRound.current !== latest.currentRound) {
+        const ans = await getBossAnswers(code, latest.id, latest.currentRound);
+        if (requestId !== pollSequence.current) return;
+        const mineAnswer = ans.find((a) => a.studentId === me.id && a.roundIndex === latest.currentRound);
+        setCurrentAnswer(mineAnswer);
+        setSubmitted(Boolean(mineAnswer));
+        // 답안을 아직 제출하지 않은 상태에서 한 번 조회했다고 해서 이 라운드를
+        // "불러오기 완료"로 고정하면 안 됩니다. 그렇게 하면 제출 직후의 정답 여부를
+        // 다시 읽지 못해 UI만 오답으로 표시되고 가위바위보/방어 연출이 막힐 수 있습니다.
+        answerHydratedRound.current = mineAnswer ? latest.currentRound : null;
+      }
       } finally {
         pollInFlight.current = false;
       }
@@ -124,18 +131,51 @@ export default function StudentBossBattlePage() {
     pollNowRef.current = () => { void poll(); };
     beat();
     poll();
-    const unsubscribe = subscribeBossBattleRoom(code, session.id, () => pollNowRef.current());
+    const unsubscribe = subscribeBossBattleRoom(
+      code,
+      session.id,
+      () => pollNowRef.current(),
+      { participants: false, answers: false, guests: false },
+    );
     // 40명이 한 번에 입장해도 주기 요청이 같은 밀리초에 몰리지 않도록
     // 브라우저마다 약간 다른 간격을 사용합니다.
-    const h = setInterval(beat, 14000 + Math.floor(Math.random() * 3000)),
-      // Realtime이 끊겼을 때를 위한 저빈도 안전망입니다.
-      p = setInterval(poll, 3000 + Math.floor(Math.random() * 1200));
+    const h = setInterval(beat, 35000 + Math.floor(Math.random() * 10000)),
+      // Realtime이 끊겼을 때만 복구하기 위한 저빈도 안전망입니다.
+      // 정상 상황의 화면 전환은 session Realtime 이벤트가 즉시 처리합니다.
+      p = setInterval(poll, 20000 + Math.floor(Math.random() * 5000));
+    const recover = () => {
+      if (document.visibilityState === "visible" && navigator.onLine) {
+        void beat();
+        void poll();
+      }
+    };
+    window.addEventListener("focus", recover);
+    window.addEventListener("online", recover);
+    document.addEventListener("visibilitychange", recover);
     return () => {
       unsubscribe();
       clearInterval(h);
       clearInterval(p);
+      window.removeEventListener("focus", recover);
+      window.removeEventListener("online", recover);
+      document.removeEventListener("visibilitychange", recover);
     };
   }, [session?.id, me?.id]);
+  useEffect(() => {
+    if (!session?.id) return;
+    let cancelled = false;
+    const refreshGuests = async () => {
+      const guests = await listRaidGuests(code, true);
+      if (!cancelled) setStudents(guests.map(raidGuestToStudent));
+    };
+    const unsubscribe = subscribeBossBattleRoom(
+      code,
+      undefined,
+      () => { void refreshGuests(); },
+      { participants: false, answers: false, guests: true },
+    );
+    return () => { cancelled = true; unsubscribe(); };
+  }, [code, session?.id]);
   async function leave() {
     // 전투가 시작된 뒤에는 결과 기록 보존을 위해 참가자 행을 삭제하지 않습니다.
     // 새 방 생성 시 교사가 기존 참가자 데이터를 일괄 정리합니다.
@@ -144,26 +184,52 @@ export default function StudentBossBattlePage() {
     router.push("/");
   }
   async function answer(a: any) {
-    if (!session || !me || session.paused) return;
+    if (!session || !me || session.paused || submitted) return;
     const q =
       session.selectedQuestions.find(
         (x) => x.id === session.roundPlan[session.currentRound]?.questionId,
       ) || session.selectedQuestions[session.currentRound];
-    await submitBossAnswer(
-      code,
-      session.id,
-      session.currentRound,
-      me.id,
-      String(me.attendanceNumber),
-      a,
-      isBossAnswerCorrect(q, a),
-    );
-    setSubmitted(true);
+    try {
+      const isCorrect = isBossAnswerCorrect(q, a);
+      await submitBossAnswer(
+        code,
+        session.id,
+        session.currentRound,
+        me.id,
+        String(me.attendanceNumber),
+        a,
+        isCorrect,
+      );
+      // 서버 재조회가 끝나기 전에도 학생 화면이 서버 판정과 같은 값을 사용하도록
+      // 방금 제출한 답안과 채점 결과를 즉시 로컬 상태에 반영합니다.
+      const submittedAt = new Date().toISOString();
+      setCurrentAnswer({
+        sessionId: session.id,
+        roundIndex: session.currentRound,
+        studentId: me.id,
+        attendanceNumber: String(me.attendanceNumber),
+        answer: a,
+        isCorrect,
+        submittedAt,
+      });
+      setSubmitted(true);
+      answerHydratedRound.current = session.currentRound;
+      pollNowRef.current();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "알 수 없는 오류";
+      alert(`답안을 전송하지 못했습니다.\n\n${message}\n\n인터넷 연결을 확인한 뒤 다시 제출해 주세요.`);
+    }
   }
   async function rps(c: RpsChoice) {
     if (!session || !me || session.paused) return;
-    await submitBossRps(code, session.id, session.currentRound, me.id, c);
-    setCurrentAnswer((v) => (v ? { ...v, rpsChoice: c } : v));
+    try {
+      await submitBossRps(code, session.id, session.currentRound, me.id, c);
+      setCurrentAnswer((v) => (v ? { ...v, rpsChoice: c } : v));
+      pollNowRef.current();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "알 수 없는 오류";
+      alert(`가위바위보 선택을 전송하지 못했습니다.\n\n${message}`);
+    }
   }
   const selectedBoss = getBossById(session?.bossId),
     joined = participants
@@ -183,7 +249,9 @@ export default function StudentBossBattlePage() {
     );
   if (session && session.status !== "waiting")
     return (
-      <BossBattleArena
+      <>
+        <SupabaseShardBadge roomCode={code} />
+        <BossBattleArena
         session={session}
         me={me}
         participant={mine}
@@ -195,9 +263,11 @@ export default function StudentBossBattlePage() {
         teacherParticipants={participants}
         onExit={() => router.push("/")}
       />
+      </>
     );
   return (
     <main className="min-h-screen bg-slate-950 p-3 text-white">
+      <SupabaseShardBadge roomCode={code} />
       <div className="mx-auto max-w-7xl">
         <div className="mb-3 flex items-center justify-between">
           <Button className="bg-white text-black" onClick={leave}>
