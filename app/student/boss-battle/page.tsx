@@ -119,7 +119,10 @@ export default function StudentBossBattlePage() {
         const mineAnswer = ans.find((a) => a.studentId === me.id && a.roundIndex === latest.currentRound);
         setCurrentAnswer(mineAnswer);
         setSubmitted(Boolean(mineAnswer));
-        answerHydratedRound.current = latest.currentRound;
+        // 답안을 아직 제출하지 않은 상태에서 한 번 조회했다고 해서 이 라운드를
+        // "불러오기 완료"로 고정하면 안 됩니다. 그렇게 하면 제출 직후의 정답 여부를
+        // 다시 읽지 못해 UI만 오답으로 표시되고 가위바위보/방어 연출이 막힐 수 있습니다.
+        answerHydratedRound.current = mineAnswer ? latest.currentRound : null;
       }
       } finally {
         pollInFlight.current = false;
@@ -187,6 +190,7 @@ export default function StudentBossBattlePage() {
         (x) => x.id === session.roundPlan[session.currentRound]?.questionId,
       ) || session.selectedQuestions[session.currentRound];
     try {
+      const isCorrect = isBossAnswerCorrect(q, a);
       await submitBossAnswer(
         code,
         session.id,
@@ -194,9 +198,22 @@ export default function StudentBossBattlePage() {
         me.id,
         String(me.attendanceNumber),
         a,
-        isBossAnswerCorrect(q, a),
+        isCorrect,
       );
+      // 서버 재조회가 끝나기 전에도 학생 화면이 서버 판정과 같은 값을 사용하도록
+      // 방금 제출한 답안과 채점 결과를 즉시 로컬 상태에 반영합니다.
+      const submittedAt = new Date().toISOString();
+      setCurrentAnswer({
+        sessionId: session.id,
+        roundIndex: session.currentRound,
+        studentId: me.id,
+        attendanceNumber: String(me.attendanceNumber),
+        answer: a,
+        isCorrect,
+        submittedAt,
+      });
       setSubmitted(true);
+      answerHydratedRound.current = session.currentRound;
       pollNowRef.current();
     } catch (error) {
       const message = error instanceof Error ? error.message : "알 수 없는 오류";
