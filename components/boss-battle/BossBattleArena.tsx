@@ -72,12 +72,26 @@ export function BossBattleArena({
     [rewardBusy, setRewardBusy] = useState(false),
     [rewardInfo, setRewardInfo] = useState<any>(null),
     [rewardError, setRewardError] = useState(""),
+    [linkedRewardArrived, setLinkedRewardArrived] = useState(false),
     [tabletStageScale, setTabletStageScale] = useState<number | null>(null);
   async function openSsaemquestReward() {
     setRewardOpen(true); setRewardError(""); if(rewardInfo)return; setRewardBusy(true);
-    try { const response=await fetch("/api/ssaemquest-reward",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({outcome:session.status,sourceKey:`${session.id}:${session.status}`})}); const result=await response.json(); if(!response.ok)throw new Error(result.error||"보상 코드를 만들지 못했습니다."); setRewardInfo(result); }
+    try { const response=await fetch("/api/ssaemquest-reward",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({outcome:session.status,sourceKey:`${session.id}:${session.status}`,roomCode:session.classCode})}); const result=await response.json(); if(!response.ok)throw new Error(result.error||"보상을 보내지 못했습니다."); setRewardInfo(result); }
     catch(error:any){setRewardError(error.message||"보상 코드를 만들지 못했습니다.");} finally{setRewardBusy(false);}
   }
+  useEffect(() => {
+    if (isTeacher || typeof window === "undefined") return;
+    const token = sessionStorage.getItem("ssaemquest-schoolraid-token");
+    if (!token) return;
+    const check = async () => {
+      const response = await fetch(`/api/ssaemquest-link?token=${encodeURIComponent(token)}`, { cache: "no-store" });
+      const data = await response.json().catch(() => null);
+      if (data?.link?.status === "rewarded") setLinkedRewardArrived(true);
+    };
+    void check();
+    const timer = window.setInterval(check, 5000);
+    return () => window.clearInterval(timer);
+  }, [isTeacher]);
   useEffect(() => {
     if (isTeacher) {
       setTabletStageScale(null);
@@ -991,6 +1005,7 @@ export function BossBattleArena({
           <div className="rounded-2xl border-4 border-white bg-black/80 px-12 py-8 text-6xl font-black tracking-[.18em] text-white shadow-2xl">일시정지</div>
         </div>
       )}
+      {linkedRewardArrived && !isTeacher && <div className="absolute inset-0 z-[520] grid place-items-center bg-black/70 p-4"><div className="w-full max-w-md rounded-2xl border-4 border-amber-400 bg-white p-7 text-center text-slate-950"><h2 className="text-2xl font-black">승리 보상이 도착했습니다.</h2><p className="mt-3 text-sm text-slate-600">보상은 이미 쌤퀘스트 계정에 지급되었습니다.</p><Button className="mt-6 w-full bg-amber-500 font-black" onClick={()=>{const url=sessionStorage.getItem("ssaemquest-return-url");if(url)window.location.href=`${url}/student/dashboard`;}}>쌤퀘스트로 이동하기</Button></div></div>}
       <style jsx global>{`
         .boss-paused * { animation-play-state: paused !important; transition-duration: 0s !important; }
         /* PC와 교사 화면은 기존 revision5 레이아웃을 그대로 유지합니다. */
