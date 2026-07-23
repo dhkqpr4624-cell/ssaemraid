@@ -13,7 +13,7 @@ import { BossWaitingParticipant } from "@/components/boss-battle/BossWaitingPart
 import { BossWaitingRoomBgm } from "@/components/boss-battle/BossWaitingRoomBgm";
 import { SupabaseShardBadge } from "@/components/debug/SupabaseShardBadge";
 import { BossBattleArena } from "@/components/boss-battle/BossBattleArena";
-import { ArrowLeft, Play, RefreshCw, StopCircle, Users, QrCode, X, Pause, PlayCircle } from "lucide-react";
+import { ArrowLeft, Gift, Play, RefreshCw, StopCircle, Users, QrCode, X, Pause, PlayCircle } from "lucide-react";
 import { getBossById } from "@/lib/boss-catalog";
 import { REWARD_FOLDER_ITEMS } from "@/lib/reward-folder-items";
 import {
@@ -69,6 +69,16 @@ export default function TeacherBossBattlePage() {
     [preparedSelected, setPreparedSelected] = useState<Record<string, boolean>>({}),
     [busy, setBusy] = useState(false),
     [qrOpen, setQrOpen] = useState(false),
+    [rewardOpen, setRewardOpen] = useState(false),
+    [rewardBusy, setRewardBusy] = useState(false),
+    [rewardError, setRewardError] = useState(""),
+    [issuedReward, setIssuedReward] = useState<{
+      code: string;
+      item_name: string;
+      item_icon_url?: string | null;
+      expires_at?: string | null;
+      ssaemquestUrl: string;
+    } | null>(null),
     [avatarCustomizationEnabled, setAvatarCustomizationEnabled] = useState(true),
     [victoryRewardItemId, setVictoryRewardItemId] = useState(
       "g5-s1-social-u3-pet-law-judge-haetae",
@@ -111,6 +121,14 @@ export default function TeacherBossBattlePage() {
       }
     });
   }, [code]);
+
+  useEffect(() => {
+    if (!["defeated", "escaped"].includes(session?.status || "")) {
+      setRewardOpen(false);
+      setIssuedReward(null);
+      setRewardError("");
+    }
+  }, [session?.id, session?.status]);
 
   // 교사 탭이 살아 있는 동안 별도 room lease 테이블만 갱신합니다. 게임 세션 Realtime에는
   // 영향을 주지 않으며, heartbeat가 멈추면 3분 정리 작업이 남은 방을 자동 삭제합니다.
@@ -420,6 +438,33 @@ export default function TeacherBossBattlePage() {
     });
     await resetBossParticipantStates(code, session.id);
     setSession(reset);
+  }
+  async function showSsaemquestReward() {
+    if (!session || !["defeated", "escaped"].includes(session.status)) return;
+    setRewardOpen(true);
+    setRewardError("");
+    if (issuedReward) return;
+    setRewardBusy(true);
+    try {
+      const response = await fetch("/api/ssaemquest-link", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          outcome: session.status,
+          sourceKey: `schoolraid:${session.id}:${session.status}:${session.phaseStartedAt || "result"}`,
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result?.reward?.code)
+        throw new Error(result?.error || "보상 코드를 발급하지 못했습니다.");
+      setIssuedReward({ ...result.reward, ssaemquestUrl: result.ssaemquestUrl });
+    } catch (error) {
+      setRewardError(
+        error instanceof Error ? error.message : "보상 코드를 발급하지 못했습니다.",
+      );
+    } finally {
+      setRewardBusy(false);
+    }
   }
   async function goQuestion(
     nextRound: number,
@@ -1047,6 +1092,64 @@ export default function TeacherBossBattlePage() {
           onPause={togglePause}
           onShowQr={() => setQrOpen(true)}
         />
+        {["defeated", "escaped"].includes(session.status) && (
+          <div className="fixed bottom-5 right-5 z-[180]">
+            <Button
+              size="lg"
+              className="bg-amber-400 font-black text-slate-950 shadow-xl hover:bg-amber-300"
+              onClick={() => void showSsaemquestReward()}
+            >
+              <Gift className="mr-2 h-5 w-5" />
+              쌤퀘스트에서 보상 받기
+            </Button>
+          </div>
+        )}
+        {rewardOpen && (
+          <div className="fixed inset-0 z-[600] grid place-items-center bg-black/75 p-4">
+            <div className="relative w-full max-w-md rounded-2xl bg-white p-6 text-center text-slate-950 shadow-2xl">
+              <button
+                className="absolute right-3 top-3 rounded p-1 hover:bg-slate-100"
+                onClick={() => setRewardOpen(false)}
+                aria-label="닫기"
+              >
+                <X />
+              </button>
+              <h2 className="mb-2 text-2xl font-black">쌤퀘스트 보상</h2>
+              {rewardBusy && <p className="py-16 font-bold">보상 코드를 만드는 중…</p>}
+              {rewardError && (
+                <div className="py-10">
+                  <p className="mb-4 text-red-600">{rewardError}</p>
+                  <Button onClick={() => { setIssuedReward(null); void showSsaemquestReward(); }}>
+                    다시 시도
+                  </Button>
+                </div>
+              )}
+              {!rewardBusy && !rewardError && issuedReward && (() => {
+                const claimUrl = `${issuedReward.ssaemquestUrl}/student/raid-reward?code=${encodeURIComponent(issuedReward.code)}`;
+                const iconUrl = issuedReward.item_icon_url
+                  ? new URL(issuedReward.item_icon_url, issuedReward.ssaemquestUrl).toString()
+                  : "";
+                return (
+                  <div>
+                    {iconUrl && (
+                      <img src={iconUrl} alt="" className="mx-auto mb-2 h-20 w-20 object-contain" />
+                    )}
+                    <div className="mb-3 text-lg font-bold">{issuedReward.item_name}</div>
+                    <img
+                      className="mx-auto h-64 w-64 max-w-full"
+                      alt="쌤퀘스트 보상 QR 코드"
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=512x512&margin=12&data=${encodeURIComponent(claimUrl)}`}
+                    />
+                    <p className="mt-3 text-sm text-slate-600">QR코드를 스캔하거나 아래 코드를 입력하세요.</p>
+                    <div className="mt-2 select-all rounded-xl bg-slate-100 px-4 py-3 font-mono text-3xl font-black tracking-[0.18em]">
+                      {issuedReward.code}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        )}
         {qrOpen && <div className="fixed inset-0 z-[500] grid place-items-center bg-black/75 p-4"><div className="relative rounded-2xl bg-white p-7 text-center text-slate-950"><button className="absolute right-3 top-3" onClick={()=>setQrOpen(false)}><X/></button><h2 className="mb-3 text-2xl font-black">학생 입장 QR 코드</h2><img className="mx-auto h-80 w-80 max-h-[60dvh] max-w-[60dvh]" alt="방 입장 QR 코드" src={`https://api.qrserver.com/v1/create-qr-code/?size=640x640&data=${encodeURIComponent(`${window.location.origin}/student?code=${code}`)}`}/><div className="mt-3 font-mono text-3xl font-black">{code}</div><p className="mt-2 text-sm text-slate-600">QR 스캔 후 닉네임 설정 화면으로 바로 이동합니다.</p></div></div>}
       </>
     );
